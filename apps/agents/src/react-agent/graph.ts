@@ -1,79 +1,49 @@
 import { AIMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { MessagesAnnotation, StateGraph } from "@langchain/langgraph";
-import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { createReactAgent, ToolNode } from "@langchain/langgraph/prebuilt";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
 import { loadChatModel } from "./utils.js";
+import { fetchAgentPrompt } from "./prompts/fetch-agent.js";
 
-// Define the function that calls the model
-async function callModel(
-  state: typeof MessagesAnnotation.State,
-  config: RunnableConfig,
-): Promise<typeof MessagesAnnotation.Update> {
-  /** Call the LLM powering our agent. **/
-  const configuration = ensureConfiguration(config);
+const chatModel = loadChatModel();
 
-  // Feel free to customize the prompt, model, and other logic!
-  const chatModel = loadChatModel();
-  console.log("🚀 ~ callModel ~ chatModel:", chatModel)
-  if (!chatModel) {
-    throw new Error("加载聊天模型失败，chatModel 为 undefined");
-  }
-  const model = chatModel.bindTools?.(TOOLS);
-  if (!model) {
-    throw new Error("模型未正确绑定工具，model 为 undefined");
-  }
+const fetchAgent = async (state: typeof MessagesAnnotation.State) => {
 
-  const response = await model.invoke([
-    {
-      role: "system",
-      content: configuration.systemPromptTemplate.replace(
-        "{system_time}",
-        new Date().toISOString(),
-      ),
-    },
-    ...state.messages,
-  ]);
+  const prompt = await fetchAgentPrompt.format({
+    system_time: new Date().toISOString(),
+  });
 
-  // We return a list, because this will get added to the existing list
+  const agent = createReactAgent({
+    llm: chatModel,
+    prompt,
+    tools: [],
+  });
+
+  const response = await agent.invoke(state);
+
   return { messages: [response] };
 }
 
-// Define the function that determines whether to continue or not
-function routeModelOutput(state: typeof MessagesAnnotation.State): string {
-  const messages = state.messages;
-  const lastMessage = messages[messages.length - 1];
-  // If the LLM is invoking tools, route there.
-  if ((lastMessage as AIMessage)?.tool_calls?.length || 0 > 0) {
-    return "tools";
-  }
-  // Otherwise end the graph.
-  else {
-    return "__end__";
-  }
+
+const canvasAgent = async () => {
+  
 }
 
 // Define a new graph. We use the prebuilt MessagesAnnotation to define state:
 // https://langchain-ai.github.io/langgraphjs/concepts/low_level/#messagesannotation
 const workflow = new StateGraph(MessagesAnnotation, ConfigurationSchema)
   // Define the two nodes we will cycle between
-  .addNode("callModel", callModel)
-  .addNode("tools", new ToolNode(TOOLS))
+  .addNode("fetchAgent", fetchAgent)
+  .addNode("canvasAgent", canvasAgent)
   // Set the entrypoint as `callModel`
   // This means that this node is the first one called
-  .addEdge("__start__", "callModel")
-  .addConditionalEdges(
-    // First, we define the edges' source node. We use `callModel`.
-    // This means these are the edges taken after the `callModel` node is called.
-    "callModel",
-    // Next, we pass in the function that will determine the sink node(s), which
-    // will be called after the source node is called.
-    routeModelOutput,
-  )
+  .addEdge("__start__", "fetchAgent")
+
   // This means that after `tools` is called, `callModel` node is called next.
-  .addEdge("tools", "callModel");
+  .addEdge("fetchAgent", "canvasAgent");
 
 // Finally, we compile it!
 // This compiles it into a graph you can invoke and deploy.
