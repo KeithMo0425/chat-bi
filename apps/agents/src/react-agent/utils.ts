@@ -1,6 +1,9 @@
 import { initChatModel } from "langchain/chat_models/universal";
 import { ChatAlibabaTongyi } from "@langchain/community/chat_models/alibaba_tongyi";
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI, OpenAI } from "@langchain/openai";
+
+const providerUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
 /**
  * Load a chat model from a fully specified name.
  * @param fullySpecifiedName - String in the format 'provider/model' or 'provider/account/provider/model'.
@@ -22,9 +25,20 @@ export function loadChatModel(): ChatOpenAI {
     model: "qwen-plus",
     apiKey: process.env.ALIBABA_API_KEY,
     configuration: {
-      baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      baseURL: providerUrl,
       // other params...
     },
     // other params...
   });
+}
+
+export function loadModal() {
+  return new ChatOpenAI({
+    model: "qwen-turbo",
+    apiKey: process.env.ALIBABA_API_KEY,
+    configuration: {
+      baseURL: providerUrl,
+      // other params...
+    },
+  })
 }

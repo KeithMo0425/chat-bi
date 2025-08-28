@@ -7,19 +7,17 @@ export const apis: Api[] = [
     description: "按分类分组获取商品销售数据",
     apiUrl: '/api/v1/goods/sales/category',
     apiMethod: 'GET',
-    parameters: zod.object({
+    parameters: {
       category: zod.optional(zod.string().describe("商品分类")),
-      dateTimeRange: zod.tuple([
-        zod.iso.datetime().describe("开始时间"),
-        zod.iso.datetime().describe("结束时间"),
-      ]).describe("时间范围"),
-    }),
-    response: zod.object({
+      start_date: zod.iso.datetime({ local: true, error: '开始时间不能为空'}).describe("统计币单价 开始时间"),
+      end_date: zod.iso.datetime({ local: true, error: '结束时间不能为空'}).describe("统计币单价 结束时间"),
+    },
+    response: {
       list:  zod.array(zod.object({
         text: zod.string().describe("商品分类"),
         value: zod.number().describe("商品销售数量"),
       }))
-    }),
+    },
     mockData: () => {
       return {
         list: [
@@ -46,15 +44,15 @@ export const apis: Api[] = [
   {
     name: "get_member_statistics_data",
     description: "获取会员统计数据",
-    parameters: zod.object({
+    parameters: {
       dateTimeRange: zod.tuple([
         zod.iso.datetime().describe("开始时间"),
         zod.iso.datetime().describe("结束时间"),
       ]).describe("时间范围"),
-    }),
+    },
     apiUrl: '/api/v1/goods/sales/category1',
     apiMethod: 'POST',
-    response: zod.object({
+    response: {
       comeln: zod.object({
         value: zod.number().describe("会员数量"),
         ratio: zod.number().describe("会员环比"),
@@ -63,7 +61,7 @@ export const apis: Api[] = [
       repurchaseMoney: zod.number().describe("复购金额"),
       repurchaseMember: zod.number().describe("复购会员数"),
       totalMember: zod.number().describe("总会员数"),
-    }),
+    },
     mockData: () => {
       return {
         comeln: {
@@ -74,6 +72,26 @@ export const apis: Api[] = [
         repurchaseMoney: 103,
         repurchaseMember: 104,
         totalMember: 105,
+      }
+    }
+  },
+  {
+    name: 'query_coin_price',
+    description: '查询币单价 和 行业平均币单价',
+    apiUrl: '/api/v1/coin/price',
+    apiMethod: 'GET',
+    response: {
+      coin_price: zod.number().describe('币单价'),
+      industry_average_coin_price: zod.number().describe('行业平均币单价'),
+    },
+    parameters: {
+      start_date: zod.iso.datetime({ local: true, error: '开始时间不能为空'}).describe("统计币单价 开始时间"),
+      end_date: zod.iso.datetime({ local: true, error: '结束时间不能为空'}).describe("统计币单价 结束时间"),
+    },
+    mockData: () => {
+      return {
+        coin_price: 0.2,
+        industry_average_coin_price: 0.4,
       }
     }
   }

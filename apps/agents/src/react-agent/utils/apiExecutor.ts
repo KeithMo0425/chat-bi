@@ -1,6 +1,9 @@
 import * as zod from "zod";
 import { Api } from "../type.js";
 import { apis } from "../config/apis.js";
+import { Command, interrupt } from "@langchain/langgraph";
+ 
+zod.config(zod.locales.zhCN());
 
 const enableMock = true
 
@@ -13,8 +16,12 @@ export class ApiExecutor {
   }
 
   async execute(params: zod.z.infer<typeof this.api.parameters>) {
+    console.log("🚀 ~ ApiExecutor ~ execute ~ params:", params)
     const schema = this.api.parameters
-    const validatedParams = schema.parse(params)
+    let validatedParams: Record<string, any> = {}
+    if (schema) {
+      validatedParams = zod.object(schema).parse(params ?? {})
+    }
 
     if (enableMock) {
       return this.api.mockData?.()
