@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
+import rehypeExternalLinks from 'rehype-external-links'
 import { PageContainer } from '../components'
 import dayjs from 'dayjs'
 import { getAnalyzeData } from '../services'
@@ -64,7 +65,7 @@ function RouteComponent() {
     if (finalSource && displayedSource.length < finalSource.length) {
       const timer = setTimeout(() => {
         setDisplayedSource(finalSource.substring(0, displayedSource.length + 1));
-      }, 10); // 控制打字速度
+      }, 2); // 控制打字速度
       return () => clearTimeout(timer);
     }
   }, [finalSource, displayedSource]);
@@ -173,7 +174,7 @@ function RouteComponent() {
   return (
     <PageContainer title={titleMap[type as keyof typeof titleMap] + '经营分析报告'}>
       {loading ? <SkeletonComponent /> : (
-        <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{displayedSource}</Markdown>
+        <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeExternalLinks, { target: '_new', rel: ['noopener', 'noreferrer'] }]]}>{displayedSource}</Markdown>
       )}
     </PageContainer>
   );
