@@ -30,7 +30,7 @@ import {
   useXChat,
 } from '@ant-design/x';
 import type { Conversation } from '@ant-design/x/es/conversations';
-import { Message } from '@langchain/langgraph-sdk';
+import { Message, Interrupt } from '@langchain/langgraph-sdk';
 import { Button, GetProp, GetRef, Image, Popover, Space, Spin, message, Input, Form, type FormProps } from 'antd';
 import { createStyles } from 'antd-style';
 import dayjs from 'dayjs';
@@ -175,12 +175,13 @@ type FieldType = {
 };
 
 const InterruptPrompt = ({ questions, onSubmit }: { questions: string[], onSubmit: (values: FieldType) => void }) => {
+  console.log("🚀 ~ InterruptPrompt ~ questions:", questions)
   const onFinish: FormProps<FieldType>["onFinish"] = (values) => {
     onSubmit(values)
   };
 
   return <div style={{ marginBottom: 12, padding: 12, border: '1px solid #f0f0f0', borderRadius: 8 }}>
-    <p>{questions?.join(', ')}</p>
+    <p>{ questions?.join(', ')}</p>
     <Form
       name="basic"
       onFinish={onFinish}
@@ -228,6 +229,7 @@ const Chat = () => {
   // ==================== Runtime ====================
 
   const stream = useStreamContext();
+  const {getThreads} = useThreads()
   const [threadId, setThreadId] = useQueryState("threadId");
   const { messages } = stream
 
@@ -329,18 +331,16 @@ const Chat = () => {
   };
 
   const handleInterruptSubmit = async (values: FieldType) => {
-    if (threadId) {
-      // await stream.client['~ui'].getComponent({id: threadId}
-      // Command({
-      //   resume: values.userInput
-      // })
-      // stream.client.threads.
-      // await stream.client.threads.updateState(threadId, {
-      //   values: {
-      // //     "userInput": values.userInput,
-      //   }
-      // })
-    }
+    stream.submit(
+      {
+        messages: [{ type: "human", content: values.userInput || '' }]
+      },
+      {
+        command: {
+          resume: values.userInput,
+        },
+      }
+    );
   };
 
   // ==================== Event ====================
@@ -486,6 +486,8 @@ const Chat = () => {
       />
     </Sender.Header>
   );
+
+  console.log('stream.interrupt', stream.interrupt)
   const chatSender = (
     <div className={styles.chatSend}>
       <div className={styles.sendAction}>
@@ -504,7 +506,8 @@ const Chat = () => {
         <Button icon={<AppstoreAddOutlined />}>More</Button>
       </div>
 
-      {stream.interrupt && <InterruptPrompt questions={(stream.interrupt as any).questions} onSubmit={handleInterruptSubmit} />}
+
+      {stream.interrupt && <InterruptPrompt questions={(stream.interrupt as any)?.value?.questions} onSubmit={handleInterruptSubmit} />}
 
       {/** 输入框 */}
       <Suggestion items={MOCK_SUGGESTIONS} onSelect={(itemVal) => setInputValue(`[${itemVal}]:`)}>
