@@ -69,6 +69,7 @@ const StreamSession = ({
 }) => {
   const [threadId, setThreadId] = useQueryState("threadId");
   const { getThreads, setThreads } = useThreads();
+
   const streamValue = useTypedStream({
     apiUrl,
     apiKey: apiKey ?? undefined,
@@ -80,6 +81,12 @@ const StreamSession = ({
         return { ...prev, ui };
       });
     },
+    onUpdateEvent(data) {
+      console.log("🚀 ~ StreamSession ~ data:", data)
+    },
+    onFinish(state) {
+      console.log("🚀 ~ StreamSession ~ onFinish state:", state)
+    },
     onThreadId: (id) => {
       setThreadId(id);
       // Refetch threads list when thread ID changes.
@@ -87,6 +94,9 @@ const StreamSession = ({
       sleep().then(() => getThreads().then(setThreads).catch(console.error));
     },
   });
+
+  console.log("🚀 ~ StreamSession ~ streamValue:", streamValue)
+
 
   useEffect(() => {
     checkGraphStatus(apiUrl, apiKey).then((ok) => {
@@ -132,6 +142,8 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
 // Create a custom hook to use the context
 export const useStreamContext = (): StreamContextType => {
   const context = useContext(StreamContext);
+
+  console.log("🚀 ~ useStreamContext ~ context:", context)
   if (context === undefined) {
     throw new Error("useStreamContext must be used within a StreamProvider");
   }

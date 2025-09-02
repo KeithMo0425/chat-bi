@@ -34,8 +34,15 @@ import { Message } from '@langchain/langgraph-sdk';
 import { Button, GetProp, GetRef, Image, Popover, Space, Spin, message } from 'antd';
 import { createStyles } from 'antd-style';
 import dayjs from 'dayjs';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+
+import { BubbleList } from '@/components/BubbleList';
+import { useQueryState } from 'nuqs';
+
+import {
+  ensureToolCallsHaveResponses,
+} from "@/utils/ensure-tool-responses";
 
 type BubbleDataType = {
   role: string;
@@ -69,6 +76,7 @@ const MOCK_SESSION_LIST = [
     group: 'Yesterday',
   },
 ];
+
 const MOCK_SUGGESTIONS = [
   { label: 'Write a report', value: 'report' },
   { label: 'Draw a picture', value: 'draw' },
@@ -82,12 +90,12 @@ const MOCK_SUGGESTIONS = [
     ],
   },
 ];
+
 const MOCK_QUESTIONS = [
   'What has Ant Design X upgraded?',
   'What components are in Ant Design X?',
   'How to quickly install and import components?',
 ];
-const AGENT_PLACEHOLDER = 'Generating content, please wait...';
 
 const useCopilotStyle = createStyles(({ token, css }) => {
   return {
@@ -188,94 +196,119 @@ const Chat = () => {
   // ==================== Runtime ====================
 
   const stream = useStreamContext();
+  const { messages } = stream
+
   const [agent] = useXAgent<BubbleDataType>({
-    request: (info, callbacks) => {
-      stream.submit(
-        { messages: [info.message] },
-        {
-          streamMode: ["values"],
-          optimisticValues: (prev) => ({
-            ...prev,
-            messages: [
-              ...(prev.messages ?? []),
-              info.messages,
-            ],
-          }),
-        },
-      );
-      console.log("🚀 ~ Home ~ info, callbacks:", info, callbacks)
-    }
+    baseURL: "http://localhost:2024",
   });
 
-  const loading = agent.isRequesting();
+  const loading = stream.isLoading;
 
-  const { messages, onRequest, setMessages } = useXChat({
-    agent,
-    requestFallback: (_, { error }) => {
-      if (error.name === 'AbortError') {
-        return {
-          content: 'Request is aborted',
-          role: 'assistant',
-        };
-      }
-      return {
-        content: 'Request failed, please try again!',
-        role: 'assistant',
-      };
-    },
-    transformMessage: (info) => {
-      const { originMessage, chunk } = info || {};
-      let currentContent = '';
-      let currentThink = '';
-      try {
-        if (chunk?.data && !chunk?.data.includes('DONE')) {
-          const message = JSON.parse(chunk?.data);
-          currentThink = message?.choices?.[0]?.delta?.reasoning_content || '';
-          currentContent = message?.choices?.[0]?.delta?.content || '';
-        }
-      } catch (error) {
-        console.error(error);
-      }
+  const messagesFormated = useMemo(() => {
+    return messages.map((it) => ({
+      ...it,
+      role: it.type,
+      key: it.id,
+    }));
+  }, [messages])
+  console.log("🚀 ~ Chat ~ messagesFormated:", JSON.stringify(messagesFormated[messagesFormated.length - 1], null, 2))
 
-      let content = '';
+  // const { messages, onRequest, setMessages } = useXChat({
+  //   agent,
+  //   requestFallback: (_, { error }) => {
+  //     if (error.name === 'AbortError') {
+  //       return {
+  //         content: 'Request is aborted',
+  //         role: 'assistant',
+  //       };
+  //     }
+  //     return {
+  //       content: 'Request failed, please try again!',
+  //       role: 'assistant',
+  //     };
+  //   },
+  //   transformMessage: (info) => {
+  //     const { originMessage, chunk } = info || {};
+  //     let currentContent = '';
+  //     let currentThink = '';
+  //     try {
+  //       if (chunk?.data && !chunk?.data.includes('DONE')) {
+  //         const message = JSON.parse(chunk?.data);
+  //         currentThink = message?.choices?.[0]?.delta?.reasoning_content || '';
+  //         currentContent = message?.choices?.[0]?.delta?.content || '';
+  //       }
+  //     } catch (error) {
+  //       console.error(error);
+  //     }
 
-      if (!originMessage?.content && currentThink) {
-        content = `<think>${currentThink}`;
-      } else if (
-        originMessage?.content?.includes('<think>') &&
-        !originMessage?.content.includes('</think>') &&
-        currentContent
-      ) {
-        content = `${originMessage?.content}</think>${currentContent}`;
-      } else {
-        content = `${originMessage?.content || ''}${currentThink}${currentContent}`;
-      }
+  //     let content = '';
 
-      return {
-        content: content,
-        role: 'assistant',
-      };
-    },
-    resolveAbortController: (controller) => {
-      abortController.current = controller;
-    },
-  });
+  //     if (!originMessage?.content && currentThink) {
+  //       content = `<think>${currentThink}`;
+  //     } else if (
+  //       originMessage?.content?.includes('<think>') &&
+  //       !originMessage?.content.includes('</think>') &&
+  //       currentContent
+  //     ) {
+  //       content = `${originMessage?.content}</think>${currentContent}`;
+  //     } else {
+  //       content = `${originMessage?.content || ''}${currentThink}${currentContent}`;
+  //     }
+
+  //     return {
+  //       content: content,
+  //       role: 'assistant',
+  //     };
+  //   },
+  //   resolveAbortController: (controller) => {
+  //     abortController.current = controller;
+  //   },
+  // });
+
+
+  const handleUserSubmit = (input: string) => {
+    if (!input.trim() || loading) return;
+
+    const newHumanMessage: Message = {
+      id: uuidv4(),
+      type: "human",
+      content: input,
+    };
+
+    const toolMessages = ensureToolCallsHaveResponses(stream.messages);
+    stream.submit(
+      { messages: [...toolMessages, newHumanMessage] },
+      {
+        streamMode: ["values"],
+        optimisticValues: (prev) => ({
+          ...prev,
+          messages: [
+            ...(prev.messages ?? []),
+            ...toolMessages,
+            newHumanMessage,
+          ],
+        }),
+      },
+    );
+
+  };
 
   // ==================== Event ====================
-  const handleUserSubmit = (val: string) => {
-   
-    onRequest({
-      stream: true,
-      message: { id: uuidv4(), type: "human", content: val },
-    });
+  // const handleUserSubmit = (val: string) => {
+  //   onRequest({
+  //     stream: true,
+  //     assistantId: "agent",
+  //     threadId: threadId,
+  //     message: { id: uuidv4(), type: "human", content: val },
+  //   });
 
-    // session title mock
-    if (sessionList.find((i) => i.key === curSession)?.label === 'New session') {
-      setSessionList(
-        sessionList.map((i) => (i.key !== curSession ? i : { ...i, label: val?.slice(0, 20) })),
-      );
-    }
-  };
+  //   // session title mock
+  //   if (sessionList.find((i) => i.key === curSession)?.label === 'New session') {
+  //     setSessionList(
+  //       sessionList.map((i) => (i.key !== curSession ? i : { ...i, label: val?.slice(0, 20) })),
+  //     );
+  //   }
+  // };
 
   const onPasteFile = (_: File, files: FileList) => {
     for (const file of files) {
@@ -351,36 +384,7 @@ const Chat = () => {
     <div className={styles.chatList}>
       {messages?.length ? (
         /** 消息列表 */
-        <Bubble.List
-          style={{ height: '100%', paddingInline: 16 }}
-          items={messages?.map((i) => ({
-            ...i.message,
-            classNames: {
-              content: i.status === 'loading' ? styles.loadingMessage : '',
-            },
-            typing: i.status === 'loading' ? { step: 5, interval: 20, suffix: <>💗</> } : false,
-          }))}
-          roles={{
-            assistant: {
-              placement: 'start',
-              footer: (
-                <div style={{ display: 'flex' }}>
-                  <Button type="text" size="small" icon={<ReloadOutlined />} />
-                  <Button type="text" size="small" icon={<CopyOutlined />} />
-                  <Button type="text" size="small" icon={<LikeOutlined />} />
-                  <Button type="text" size="small" icon={<DislikeOutlined />} />
-                </div>
-              ),
-              loadingRender: () => (
-                <Space>
-                  <Spin size="small" />
-                  {AGENT_PLACEHOLDER}
-                </Space>
-              ),
-            },
-            user: { placement: 'end' },
-          }}
-        />
+        <BubbleList messages={messagesFormated} />
       ) : (
         /** 没有消息时的 welcome */
         <>
