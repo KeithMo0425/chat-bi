@@ -1,0 +1,1 @@
+export const ACCESS_TOKEN_KEY = 'ai-analysis-access_token'
