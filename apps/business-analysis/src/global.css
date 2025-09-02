@@ -159,6 +159,7 @@ body {
   color: #fff;
   font-size: 15px;
   letter-spacing: 0.5px;
+  min-width: 100px;
 }
 
 .page-container-content table td {
