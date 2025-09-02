@@ -65,7 +65,7 @@ function RouteComponent() {
     if (finalSource && displayedSource.length < finalSource.length) {
       const timer = setTimeout(() => {
         setDisplayedSource(finalSource.substring(0, displayedSource.length + 1));
-      }, 2); // 控制打字速度
+      }, 20); // 控制打字速度
       return () => clearTimeout(timer);
     }
   }, [finalSource, displayedSource]);
