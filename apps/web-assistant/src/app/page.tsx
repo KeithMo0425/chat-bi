@@ -1,7 +1,7 @@
 'use client'
 
 import { StreamProvider, useStreamContext } from '@/providers/Stream';
-import { ThreadProvider } from '@/providers/Thread';
+import { ThreadProvider, useThreads } from '@/providers/Thread';
 import {
   AppstoreAddOutlined,
   CloseOutlined,
@@ -31,7 +31,7 @@ import {
 } from '@ant-design/x';
 import type { Conversation } from '@ant-design/x/es/conversations';
 import { Message } from '@langchain/langgraph-sdk';
-import { Button, GetProp, GetRef, Image, Popover, Space, Spin, message } from 'antd';
+import { Button, GetProp, GetRef, Image, Popover, Space, Spin, message, Input, Form, type FormProps } from 'antd';
 import { createStyles } from 'antd-style';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -170,6 +170,38 @@ interface CopilotProps {
   setCopilotOpen: (open: boolean) => void;
 }
 
+type FieldType = {
+  userInput?: string;
+};
+
+const InterruptPrompt = ({ questions, onSubmit }: { questions: string[], onSubmit: (values: FieldType) => void }) => {
+  const onFinish: FormProps<FieldType>["onFinish"] = (values) => {
+    onSubmit(values)
+  };
+
+  return <div style={{ marginBottom: 12, padding: 12, border: '1px solid #f0f0f0', borderRadius: 8 }}>
+    <p>{questions?.join(', ')}</p>
+    <Form
+      name="basic"
+      onFinish={onFinish}
+      autoComplete="off"
+    >
+      <Form.Item<FieldType>
+        name="userInput"
+        rules={[{ required: true, message: 'Please provide the required information!' }]}
+      >
+        <Input.TextArea autoSize={{ minRows: 2 }} placeholder="Please provide the required information..." />
+      </Form.Item>
+
+      <Form.Item>
+        <Button type="primary" htmlType="submit" block>
+          Submit
+        </Button>
+      </Form.Item>
+    </Form>
+  </div>
+}
+
 
 const Chat = () => {
   const [copilotOpen, setCopilotOpen] = useState(true);
@@ -196,7 +228,10 @@ const Chat = () => {
   // ==================== Runtime ====================
 
   const stream = useStreamContext();
+  const [threadId, setThreadId] = useQueryState("threadId");
   const { messages } = stream
+
+  console.log("stream.interrupt", stream.interrupt)
 
   const [agent] = useXAgent<BubbleDataType>({
     baseURL: "http://localhost:2024",
@@ -293,6 +328,21 @@ const Chat = () => {
 
   };
 
+  const handleInterruptSubmit = async (values: FieldType) => {
+    if (threadId) {
+      // await stream.client['~ui'].getComponent({id: threadId}
+      // Command({
+      //   resume: values.userInput
+      // })
+      // stream.client.threads.
+      // await stream.client.threads.updateState(threadId, {
+      //   values: {
+      // //     "userInput": values.userInput,
+      //   }
+      // })
+    }
+  };
+
   // ==================== Event ====================
   // const handleUserSubmit = (val: string) => {
   //   onRequest({
@@ -337,7 +387,7 @@ const Chat = () => {
                   ...sessionList,
                 ]);
                 setCurSession(timeNow);
-                setMessages([]);
+                // setMessages([]);
               }, 100);
             } else {
               message.error('It is now a new conversation.');
@@ -361,7 +411,7 @@ const Chat = () => {
                 // In future versions, the sessionId capability will be added to resolve this problem.
                 setTimeout(() => {
                   setCurSession(val);
-                  setMessages(messageHistory?.[val] || []);
+                  // setMessages(messageHistory?.[val] || []);
                 }, 100);
               }}
               styles={{ item: { padding: '0 8px' } }}
@@ -384,7 +434,7 @@ const Chat = () => {
     <div className={styles.chatList}>
       {messages?.length ? (
         /** 消息列表 */
-        <BubbleList messages={messagesFormated} />
+        <BubbleList messages={messagesFormated as any} />
       ) : (
         /** 没有消息时的 welcome */
         <>
@@ -453,6 +503,8 @@ const Chat = () => {
         </Button>
         <Button icon={<AppstoreAddOutlined />}>More</Button>
       </div>
+
+      {stream.interrupt && <InterruptPrompt questions={(stream.interrupt as any).questions} onSubmit={handleInterruptSubmit} />}
 
       {/** 输入框 */}
       <Suggestion items={MOCK_SUGGESTIONS} onSelect={(itemVal) => setInputValue(`[${itemVal}]:`)}>
