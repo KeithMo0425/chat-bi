@@ -1,15 +1,17 @@
-import { BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { Annotation, Command, END, MemorySaver, START, StateGraph, interrupt, messagesStateReducer } from "@langchain/langgraph";
+import { BaseMessage, HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import { Annotation, Command, END, MemorySaver, START, StateGraph, interrupt, messagesStateReducer, type LangGraphRunnableConfig } from "@langchain/langgraph";
 import { JsonOutputParser } from "@langchain/core/output_parsers";
 import { ConfigurationSchema } from "./configuration.js";
+import { typedUi, uiMessageReducer } from "@langchain/langgraph-sdk/react-ui/server";
 import { loadChatModel, loadModal } from "./utils.js";
 import { AnalysisOfIntentionsPrompt, ExtractParametersPrompt, AnalysisAgentPrompt } from "./prompts/fetch-agent.js";
 import { apis } from "./config/apis.js";
 import * as z from 'zod'
 import { ApiExecutor } from "./utils/apiExecutor.js";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { getMarketingPlan } from "./tools/getMarketingPlan.js";
+import { getMarketingPlan, ChartTools } from "./tools/index.js";
 import { MultiServerMCPClient } from "@langchain/mcp-adapters";
+import { v4 as uuidv4 } from 'uuid';
 
 const chatModel = loadChatModel();
 
@@ -55,6 +57,15 @@ const StateAnnotation = Annotation.Root({
     schema: z.ZodObject<any>
     userInput: string
   }>,
+  thoughtChain: Annotation<{
+    key: 'analysisOfIntentions' | 'matchApis' | 'apiExecutor' | 'result' | 'extractParameters'
+    title?: string
+    status: 'success' | 'error' | 'pending'
+    content?: string
+  }[]>,
+  thoughtProcessId: Annotation<string>,
+  // Add the 'ui' field to the state annotation for handling UI messages
+  ui: Annotation({ reducer: uiMessageReducer, default: () => [] }),
 });
 
 const callChatModal = async (state: typeof StateAnnotation.State) => {
@@ -81,6 +92,7 @@ const client = new MultiServerMCPClient({
 })
 
 const analysisAgent = async (state: typeof StateAnnotation.State) => {
+  
   const model = loadChatModel();
   // Here we only save in-memory
   const memory = new MemorySaver();
@@ -88,9 +100,9 @@ const analysisAgent = async (state: typeof StateAnnotation.State) => {
 
   const agent = createReactAgent({
     llm: model,
-    tools: [getMarketingPlan, ...(await client.getTools())],
+    tools: [getMarketingPlan, ...(ChartTools)],
     checkpointSaver: memory,
-    prompt: new SystemMessage(await AnalysisAgentPrompt.format({}))
+    prompt: new SystemMessage(await AnalysisAgentPrompt.format({ result_data: state.apiResult }))
   });
   // 修复类型不匹配：agent.invoke 期望的参数类型不是 BaseMessage[]，而是 state 或 null
   // 这里直接传递 state 以符合类型要求
@@ -100,8 +112,9 @@ const analysisAgent = async (state: typeof StateAnnotation.State) => {
   return response
 }
 
-const apiExecutor = async (state: typeof StateAnnotation.State) => {
+const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
   console.log("🚀 ~ apiExecutor ~ state:", state)
+  const ui = typedUi<any>(config);
 
   const apiInfo = state.apiInfo
   const api = ApiExecutor.getApi(apiInfo.primary_recommendation)
@@ -111,16 +124,60 @@ const apiExecutor = async (state: typeof StateAnnotation.State) => {
 
   try {
 
+
+    // Find the associated message to link the UI update
+    const associatedMessage = state.messages.find(
+      (msg) => msg.id === state.thoughtProcessId,
+    );
+
+    ui.push({
+      id: state.thoughtProcessId, // Use the same ID to update the existing UI element
+      name: 'ThoughtProcess',
+      props: { items: [
+        ...(state.thoughtChain ?? []),
+        {
+          key: 'apiExecutor' as const,
+          title: '接口查询',
+          status: 'pending' as const,
+          content: '查询中...',
+        },
+      ]},
+    }, { message: associatedMessage });
+
     const result = await new ApiExecutor(api).execute(apiInfo.api_params)
+
+    const updatedThoughtChain = [
+      ...(state.thoughtChain ?? []),
+      {
+        key: 'apiExecutor' as const,
+        title: '接口查询',
+        status: 'success' as const,
+        content: `接口查询成功，结果为：\n\`\`\`json\n${JSON.stringify(
+          result,
+          null,
+          2,
+        )}\n\`\`\``,
+      },
+    ];
+
+    // Push an update to the ThoughtProcess UI component
+    ui.push({
+      id: state.thoughtProcessId, // Use the same ID to update the existing UI element
+      name: 'ThoughtProcess',
+      props: { items: updatedThoughtChain },
+    }, { message: associatedMessage });
+
     return {
-      messages: [new SystemMessage({ content: `接口查询结果: ${JSON.stringify(result)}` })],
-      secondExtract: null
+      // messages: [new SystemMessage({ content: `接口查询结果: ${JSON.stringify(result)}` })],
+      secondExtract: null,
+      apiResult: result,
+      thoughtChain: updatedThoughtChain,
     }
 
   } catch (error) {
     if (error instanceof z.ZodError) {
       const userInput: string = interrupt({
-        questions: error.issues.map(it => it.message),
+        questions: error.issues.map(it => `${it.path}:${it.message}`),
       });
 
       console.log("🚀 ~ ApiExecutor ~ execute ~ userInput:", z.toJSONSchema(z.object(api.parameters)))
@@ -137,8 +194,9 @@ const apiExecutor = async (state: typeof StateAnnotation.State) => {
 
 }
 
-const analysisOfIntentions = async (state: typeof StateAnnotation.State) => {
+const analysisOfIntentions = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
   console.log("🚀 ~ analysisOfIntentions ~ state:", state.secondExtract)
+  const ui = typedUi<any>(config);
 
   const parser = new JsonOutputParser<AnalysisOfIntentionsOutput>();
 
@@ -159,18 +217,62 @@ const analysisOfIntentions = async (state: typeof StateAnnotation.State) => {
 
   console.log('response', response)
 
-  return { apiInfo: response }
+  const thoughtProcessId = uuidv4()
+
+  const initialThoughtChain = [
+    {
+      key: 'analysisOfIntentions' as const,
+      title: '用户意图分析',
+      content: response.analysis_details,
+      status: 'success' as const,
+    },
+    {
+      key: 'matchApis' as const,
+      title: 'API 匹配',
+      status: 'success' as const,
+      content: `
+        匹配成功API： ${response.matched_apis?.[0]?.api_name};
+        匹配原因： ${response.matched_apis?.[0]?.match_reason};
+        匹配得分： ${response.matched_apis?.[0]?.relevance_score};
+      `,
+    }
+  ];
+
+  // Create the AIMessage first to establish a link
+  const aiMessage = new AIMessage({
+    content: '我正在分析您的请求...',
+    id: thoughtProcessId,
+  }, {
+    status: 'pending',
+  });
+
+  // Push the initial state of the thought process UI and associate it with the AIMessage
+  ui.push(
+    {
+      id: thoughtProcessId,
+      name: 'ThoughtProcess',
+      props: { items: initialThoughtChain },
+    },
+    { message: aiMessage },
+  );
+
+  return {
+    // We no longer send the thought chain in the AIMessage content.
+    // Instead, we send a simple introductory message.
+    messages: [aiMessage],
+    apiInfo: response,
+    thoughtProcessId,
+    thoughtChain: initialThoughtChain,
+  };
 }
 
-const extractParameters = async (state: typeof StateAnnotation.State) => {
+const extractParameters = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
   console.log("🚀 ~ extractParameters ~ state:", state)
+  const ui = typedUi<any>(config);
 
   if (!state.secondExtract) {
     return new Command({
       goto: "analysisAgent",
-      update: {
-        messages: []
-      }
     })
   }
 
@@ -187,16 +289,49 @@ const extractParameters = async (state: typeof StateAnnotation.State) => {
     });
   console.log("🚀 ~ extractParameters ~ response:", response)
 
+  const params = {
+    ...state.apiInfo.api_params,
+    ...(response ?? {}),
+  }
+
+  const updatedThoughtChain = [
+    ...(state.thoughtChain ?? []).filter(
+      (step) => step.key !== 'apiExecutor', // Remove the old pending/failed apiExecutor step
+    ),
+    {
+      key: 'extractParameters' as const,
+      title: '参数提取',
+      status: 'success' as const,
+      content: `参数提取成功，参数为：\n\`\`\`json\n${JSON.stringify(
+        params,
+        null,
+        2,
+      )}\n\`\`\``,
+    },
+  ];
+
+  // Find the associated message to link the UI update
+  const associatedMessage = state.messages.find(
+    (msg) => msg.id === state.thoughtProcessId,
+  );
+
+  // Push an update to the ThoughtProcess UI component
+  ui.push({
+    id: state.thoughtProcessId, // Use the same ID to update
+    name: 'ThoughtProcess',
+    props: { items: updatedThoughtChain },
+  }, { message: associatedMessage });
+
   return new Command({
     goto: "apiExecutor",
     update: {
+      // The AIMessage is no longer needed to display the thought process
+      messages: [],
       apiInfo: {
         ...state.apiInfo,
-        api_params: {
-          ...state.apiInfo.api_params,
-          ...(response ?? {}),
-        },
-      }
+        api_params: params,
+      },
+      thoughtChain: updatedThoughtChain,
     }
   })
   

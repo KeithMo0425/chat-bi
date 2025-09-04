@@ -229,15 +229,8 @@ const Chat = () => {
   // ==================== Runtime ====================
 
   const stream = useStreamContext();
-  const {getThreads} = useThreads()
-  const [threadId, setThreadId] = useQueryState("threadId");
   const { messages } = stream
 
-  console.log("stream.interrupt", stream.interrupt)
-
-  const [agent] = useXAgent<BubbleDataType>({
-    baseURL: "http://localhost:2024",
-  });
 
   const loading = stream.isLoading;
 
@@ -248,59 +241,7 @@ const Chat = () => {
       key: it.id,
     }));
   }, [messages])
-  console.log("🚀 ~ Chat ~ messagesFormated:", JSON.stringify(messagesFormated[messagesFormated.length - 1], null, 2))
 
-  // const { messages, onRequest, setMessages } = useXChat({
-  //   agent,
-  //   requestFallback: (_, { error }) => {
-  //     if (error.name === 'AbortError') {
-  //       return {
-  //         content: 'Request is aborted',
-  //         role: 'assistant',
-  //       };
-  //     }
-  //     return {
-  //       content: 'Request failed, please try again!',
-  //       role: 'assistant',
-  //     };
-  //   },
-  //   transformMessage: (info) => {
-  //     const { originMessage, chunk } = info || {};
-  //     let currentContent = '';
-  //     let currentThink = '';
-  //     try {
-  //       if (chunk?.data && !chunk?.data.includes('DONE')) {
-  //         const message = JSON.parse(chunk?.data);
-  //         currentThink = message?.choices?.[0]?.delta?.reasoning_content || '';
-  //         currentContent = message?.choices?.[0]?.delta?.content || '';
-  //       }
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-
-  //     let content = '';
-
-  //     if (!originMessage?.content && currentThink) {
-  //       content = `<think>${currentThink}`;
-  //     } else if (
-  //       originMessage?.content?.includes('<think>') &&
-  //       !originMessage?.content.includes('</think>') &&
-  //       currentContent
-  //     ) {
-  //       content = `${originMessage?.content}</think>${currentContent}`;
-  //     } else {
-  //       content = `${originMessage?.content || ''}${currentThink}${currentContent}`;
-  //     }
-
-  //     return {
-  //       content: content,
-  //       role: 'assistant',
-  //     };
-  //   },
-  //   resolveAbortController: (controller) => {
-  //     abortController.current = controller;
-  //   },
-  // });
 
 
   const handleUserSubmit = (input: string) => {
@@ -487,7 +428,6 @@ const Chat = () => {
     </Sender.Header>
   );
 
-  console.log('stream.interrupt', stream.interrupt)
   const chatSender = (
     <div className={styles.chatSend}>
       <div className={styles.sendAction}>
@@ -570,7 +510,7 @@ const Chat = () => {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', backgroundColor: '#f0f2f5' }}>
-      <div className={styles.copilotChat} style={{ width: copilotOpen ? 450 : 0 }}>
+      <div className={styles.copilotChat} style={{ width: copilotOpen ? 600 : 0 }}>
         {/** 对话区 - header */}
         {chatHeader}
 

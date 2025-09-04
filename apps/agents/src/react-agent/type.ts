@@ -7,7 +7,7 @@ export interface Api {
   description: string;
   parameters?: Record<string, zod.ZodTypeAny>
   response?: Record<string, zod.ZodTypeAny>
-  mockData?: () => any
+  mockData?: () => Promise<any>
 }
 
 export interface MarketingPlan {

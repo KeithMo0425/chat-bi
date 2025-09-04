@@ -143,7 +143,6 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
 export const useStreamContext = (): StreamContextType => {
   const context = useContext(StreamContext);
 
-  console.log("🚀 ~ useStreamContext ~ context:", context)
   if (context === undefined) {
     throw new Error("useStreamContext must be used within a StreamProvider");
   }

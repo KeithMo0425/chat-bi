@@ -19,26 +19,113 @@ export const apis: Api[] = [
       }))
     },
     mockData: () => {
-      return {
-        list: [
-          {
-            text: '手机',
-            value: 100,
-          },
-          {
-            text: '电脑',
-            value: 200,
-          },
-          {
-            text: '平板',
-            value: 300,
-          },
-          {
-            text: '耳机',
-            value: 400,
-          },
-        ]
-      }
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            list: [
+              {
+                text: '手机',
+                value: 100,
+              },
+              {
+                text: '电脑',
+                value: 200,
+              },
+              {
+                text: '平板',
+                value: 300,
+              },
+              {
+                text: '耳机',
+                value: 400,
+              },
+              {
+                text: '盲盒',
+                value: 20
+              },
+              {
+                text: '汽车玩具',
+                value: 30
+              },
+              {
+                text: '饮料',
+                value: 50
+              },
+              {
+                text: '零食',
+                value: 40
+              },
+              {
+                text: '玩具',
+                value: 60
+              },
+              {
+                text: '其他',
+                value: 10
+              }
+            ]
+          })
+        }, 20000)
+      })
+    }
+  },
+  {
+    name: "get_goods_sales_data",
+    description: "获取商品销售数据",
+    apiUrl: '/api/v1/goods/sales',
+    apiMethod: 'GET',
+    parameters: {
+      start_date: zod.iso.datetime({ local: true, error: '开始时间不能为空'}).describe("统计币单价 开始时间"),
+      end_date: zod.iso.datetime({ local: true, error: '结束时间不能为空'}).describe("统计币单价 结束时间"),
+    },
+    response: {
+      list:  zod.array(zod.object({
+        text: zod.string().describe("商品名称"),
+        value: zod.number().describe("商品销售数量"),
+      }))
+    },
+    mockData: () => {
+
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            list: [
+              {
+                text: '商品 1',
+                value: 100,
+              },
+              {
+                text: '商品 2',
+                value: 200,
+              },
+              {
+                text: '商品 3',
+                value: 300,
+              },
+              {
+                text: '商品 4',
+                value: 400,
+              },
+              {
+                text: '商品 5',
+                value: 500,
+              },
+              {
+                text: '商品 6',
+                value: 600,
+              },
+              {
+                text: '商品 7',
+                value: 700,
+              },
+              {
+                text: '商品 8',
+                value: 800,
+              }
+            ]
+          })
+        }, 5000)
+      })
     }
   },
   {

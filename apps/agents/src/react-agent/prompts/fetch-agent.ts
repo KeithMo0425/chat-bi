@@ -8,9 +8,15 @@ export const AnalysisAgentPrompt = PromptTemplate.fromTemplate(
   你的核心任务是深入分析客户提供的业务数据，精准定位问题，并结合你的专业知识，调用工具生成并提供一套完整、可执行的运营方案，以帮助客户实现业务增长。
 
   ## 分析流程
-  1. 根据数据生成分析图表
+  1. 根据数据 和 问题，选择一个符合要求的图表类型并生成分析图表
   2. 从多维度分析存在问题
-  3. 根据问题给出解决方案
+  3. 根据问题自主给出解决方案 或者 营销方案
+
+  =======
+
+  ## 数据查询结果
+  {result_data}
+
 `);
 
 
@@ -165,3 +171,12 @@ export const GetMarketingPlanPrompt = PromptTemplate.fromTemplate(
     ===
   `
 );
+
+export const ChartPrompt = PromptTemplate.fromTemplate(
+`
+### {title}
+\`\`\`vis-chart
+  {chart_data}
+\`\`\`
+`
+)

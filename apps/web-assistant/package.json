@@ -19,6 +19,7 @@
     "antd": "^5.27.1",
     "antd-style": "^3.7.1",
     "dayjs": "^1.11.13",
+    "github-markdown-css": "^5.8.1",
     "markdown-it": "^14.1.0",
     "next": "15.5.2",
     "nuqs": "^2.4.1",

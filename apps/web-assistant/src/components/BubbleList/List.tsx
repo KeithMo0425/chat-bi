@@ -1,45 +1,36 @@
-import { CopyOutlined, DislikeOutlined, LikeOutlined, ReloadOutlined } from "@ant-design/icons";
-import { Bubble, BubbleProps } from "@ant-design/x";
+import { CheckCircleOutlined, CopyOutlined, DislikeOutlined, InfoCircleOutlined, LikeOutlined, LoadingOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Bubble, BubbleProps, ThoughtChain, ThoughtChainProps } from "@ant-design/x";
 import type { BubbleDataType } from "@ant-design/x/es/bubble/BubbleList";
 import type { MessageInfo } from "@ant-design/x/es/use-x-chat";
-import { Button, Space, Spin, Image } from "antd";
+import { ChartType, Line, withChartCode, Area, Bar, Column, Histogram, Pie, withDefaultChartCode, GPTVis } from "@antv/gpt-vis";
+import { Button, Space, Spin, Image, Avatar, Collapse } from "antd";
 import { createStyles } from "antd-style";
-// import markdownit from 'markdown-it';
+import { useStreamContext } from '@/providers/Stream';
+import { LoadExternalComponent } from '@langchain/langgraph-sdk/react-ui';
+import { Markdown } from '@/components/Markdown';
 
-import Markdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { useThreads } from "@/providers/Thread";
+import { useEffect } from "react";
 
-// const md = markdownit({ html: true, breaks: true });
+const clientComponents = {
+  ThoughtProcess: (props: ThoughtChainProps) => {
+    const { items, ...restProps } = props
 
-const mdComponents = {
-  img(props: any) {
-    const {node, ...rest} = props
-    return <Image {...rest} />
-  }
-}
+    const iconMap = {
+      pending: <LoadingOutlined />,
+      success: <CheckCircleOutlined />,
+      error: <InfoCircleOutlined />,
+    }
 
-const renderMarkdown = (styles: any): BubbleProps['messageRender'] => (content) => {
-  console.log('content', content);
-  return (
-    <div
-      className={styles.markdownContent}
-    >
-    <Markdown
-      remarkPlugins={[remarkGfm]}
-      components={mdComponents}
-    >
-      {content}
-    </Markdown>
-    </div>
-
-    // <Typography>
-    //   {/* biome-ignore lint/security/noDangerouslySetInnerHtml: used in demo */}
-    //   <div 
-    //     className={styles.markdownContent}
-    //     dangerouslySetInnerHTML={{ __html: md.render(content) }} 
-    //   />
-    // </Typography>
-  );
+    const formatItems = items?.map((it) => {
+      return {
+        ...it,
+        icon: iconMap[it.status as keyof typeof iconMap],
+        content: <div style={{ width: '400px' }}><Markdown content={it.content || ''} /></div>,
+      }
+    })
+    return <ThoughtChain {...restProps} size="small"  items={formatItems}/>
+  }, // Backend sends 'ThoughtProcess', map it to the antd component.
 };
 
 
@@ -55,39 +46,17 @@ const useStyles = createStyles(({ css }) => {
       background-repeat: no-repeat;
       background-position: bottom;
     `,
-    
-    markdownContent: css`
-      img {
-        max-width: 100%;
-        height: auto;
-        width: auto;
-        display: block;
-        margin: 8px 0;
+
+    bubbleItem: css`
+      padding: 0;
+
+      .ant-bubble-content {
       }
-      
-      /* 可选：固定宽度样式 */
-      .fixed-width img {
-        width: 300px;
-        max-width: 100%;
-      }
-      
-      .small img {
-        width: 150px;
-        max-width: 100%;
-      }
-      
-      .medium img {
-        width: 400px;
-        max-width: 100%;
-      }
-      
-      .large img {
-        width: 600px;
-        max-width: 100%;
-      }
-    `,
+    `
+   
   }
 });
+
 
 
 export function List({
@@ -95,15 +64,68 @@ export function List({
 }: {
   messages: MessageInfo<BubbleDataType>[];
 }) {
-
+  const { getThreads } = useThreads();
   const { styles } = useStyles();
+  const stream = useStreamContext()
+  
+  useEffect(() => {
+    getThreads().then((threads) => {
+      console.log("🚀 ~ List ~ threads:", threads)
+    })
+  }, [])
+
+
+  const renderHeader = (content: string, message: any) => {
+    // Find all UI messages associated with this regular message
+    const associatedUis = stream.values?.ui?.filter((ui) => ui.metadata?.message_id === message.key) ?? [];
+    if (associatedUis.length <= 0) {
+    return null;
+    }
+
+    
+    return (
+      <Collapse
+        ghost
+        defaultActiveKey={[1]}
+        items={[
+          {
+            key: 1,
+            label: '思考过程',
+            children: (
+              <div>
+                {associatedUis.map((ui) => (
+                  <div key={ui.id} style={{ marginTop: '8px' }}>
+                    <LoadExternalComponent
+                      stream={stream}
+                      message={ui}
+                      components={clientComponents}
+                      fallback={<div>Loading UI Component...</div>}
+                    />
+                  </div>
+                ))}
+              </div>
+            )
+          }
+        ]}
+      />
+      
+    );
+  };
+
 
   return (
     <Bubble.List
       style={{ height: '100%', paddingInline: 16 }}
       items={messages?.map((i) => ({
         ...i,
-        messageRender: renderMarkdown(styles),
+        id: String(i.id), // Fix: Ensure ID is a string
+        messageRender: (content) => <Markdown content={content} />,
+        header: renderHeader,
+        className: styles.bubbleItem,
+        style: {
+          padding: 0
+        },
+        variant: "outlined",
       }))}
       roles={{
         ai: {
@@ -116,6 +138,7 @@ export function List({
               <Button type="text" size="small" icon={<DislikeOutlined />} />
             </div>
           ),
+          avatar: <Avatar>AI</Avatar>,
           loadingRender: () => (
             <Space>
               <Spin size="small" />
@@ -123,8 +146,8 @@ export function List({
             </Space>
           ),
         },
-        system: { placement: 'start' },
-        human: { placement: 'end' },
+        system: { placement: 'start', avatar: <Avatar>sys</Avatar> },
+        human: { placement: 'end', avatar: <Avatar>humn</Avatar> },
       }}
     />
   )

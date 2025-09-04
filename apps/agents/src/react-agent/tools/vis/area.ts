@@ -1,5 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
+import { ChartPrompt } from '../../prompts/fetch-agent.js'
 
 const data = z.object({
   time: z.string(),
@@ -13,6 +14,10 @@ const inputSchema = z.object({
     .array(data)
     .describe("Data for area chart, such as, [{ time: '2018', value: 99.9 }].")
     .nonempty({ message: "Area chart data cannot be empty." }),
+  title: z
+    .string()
+    .optional()
+    .describe('chart title'),
 });
 
 interface InputType {
@@ -20,24 +25,20 @@ interface InputType {
     time: string
     value: string | number
     group?: string
-  }[]
+  }[],
+  title?: string
 }
 
-
 export const generateArea = tool(
-  async (input: InputType) => {
+  async (input) => {
 
-    const { data } = input
+    const { data, title = '区域图'} = input as InputType
     const reutrnData = {
       type: 'area',
       data,
     }
     
-    return `
-      \`\`\`vis-chart
-        ${JSON.stringify(reutrnData, null, 2)}
-      \`\`\`
-    `
+    return ChartPrompt.format({ chart_data: JSON.stringify(reutrnData), title })
   },
   {
     name: "generate_area_chart",
