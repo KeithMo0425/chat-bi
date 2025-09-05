@@ -2,6 +2,8 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect } from 'react';
 import { ACCESS_TOKEN_KEY } from '../config';
 import BgImage from '../assets/bg.png?url';
+import AILogo from '../assets/ai-logo.gif?url';
+import AITitle from '../assets/ai-title.png?url';
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -37,9 +39,16 @@ function Home() {
         {/* 上方标题和装饰区域 */}  
         <div className="title-container">
           {/* 主标题 */}
-          <h1 className="text-4xl lg:text-5xl font-bold text-gray-800 mb-4">
-            油菜花AI
-          </h1>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            marginBottom: 20,
+          }}>
+            <img src={AILogo} alt="AI Logo" className="h-20" />
+            <img src={AITitle} alt="AI Title" className="h-20" />
+          </div>
           
           {/* 副标题 */}
           <p className="text-gray-600 text-lg lg:text-xl max-w-2xl mx-auto leading-relaxed">
