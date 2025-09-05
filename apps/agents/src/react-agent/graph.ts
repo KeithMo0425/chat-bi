@@ -1,4 +1,4 @@
-import { BaseMessage, HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import { BaseMessage, HumanMessage, SystemMessage, AIMessage, isSystemMessage, isHumanMessage, isAIMessage, isToolMessage, ToolMessage } from "@langchain/core/messages";
 import { Annotation, Command, END, MemorySaver, START, StateGraph, interrupt, messagesStateReducer, type LangGraphRunnableConfig } from "@langchain/langgraph";
 import { JsonOutputParser } from "@langchain/core/output_parsers";
 import { ConfigurationSchema } from "./configuration.js";
@@ -102,12 +102,18 @@ const analysisAgent = async (state: typeof StateAnnotation.State) => {
     llm: model,
     tools: [getMarketingPlan, ...(ChartTools)],
     checkpointSaver: memory,
-    prompt: new SystemMessage(await AnalysisAgentPrompt.format({ result_data: state.apiResult }))
+    // prompt: 
   });
   // 修复类型不匹配：agent.invoke 期望的参数类型不是 BaseMessage[]，而是 state 或 null
   // 这里直接传递 state 以符合类型要求
-  const response = await agent.invoke({ messages: state.messages });
-  console.log("🚀 ~ analysisAgent ~ response:", response)
+  const response = await agent.invoke(
+    {
+      messages:  [...state.messages, new SystemMessage(await AnalysisAgentPrompt.format({ result_data: JSON.stringify(state.apiResult) })) ]
+    },
+    {
+      streamMode: 'updates'
+    }
+  );
 
   return response
 }
@@ -168,7 +174,7 @@ const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGrap
     }, { message: associatedMessage });
 
     return {
-      // messages: [new SystemMessage({ content: `接口查询结果: ${JSON.stringify(result)}` })],
+      messages: [new SystemMessage({ content: `接口查询结果: ${JSON.stringify(result)}` })],
       secondExtract: null,
       apiResult: result,
       thoughtChain: updatedThoughtChain,
@@ -267,7 +273,6 @@ const analysisOfIntentions = async (state: typeof StateAnnotation.State, config:
 }
 
 const extractParameters = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
-  console.log("🚀 ~ extractParameters ~ state:", state)
   const ui = typedUi<any>(config);
 
   if (!state.secondExtract) {

@@ -31,7 +31,6 @@ export const getMarketingPlan = tool(
         marketing_plan_list: marketingPlan,
         format_instructions: z.toJSONSchema(planOutput),
       })
-    console.log("🚀 ~ getMarketingPlan ~  response:", response)
 
     return response
   },

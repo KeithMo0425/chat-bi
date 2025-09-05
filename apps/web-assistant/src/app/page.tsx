@@ -92,9 +92,13 @@ const MOCK_SUGGESTIONS = [
 ];
 
 const MOCK_QUESTIONS = [
-  'What has Ant Design X upgraded?',
-  'What components are in Ant Design X?',
-  'How to quickly install and import components?',
+  '查询今天的商品销售数据',
+  '查询今天的新增会员数据',
+  '查询今天的会员统计数据',
+  '查询今天的币单价',
+  '查询今天的行业平均币单价',
+  '查询今天的商品销售数据按分类分组',
+  '查询今天的商品销售数据按商品分类分组',
 ];
 
 const useCopilotStyle = createStyles(({ token, css }) => {
@@ -235,7 +239,7 @@ const Chat = () => {
   const loading = stream.isLoading;
 
   const messagesFormated = useMemo(() => {
-    return messages.map((it) => ({
+    return messages?.filter((it) => ['human', 'ai'].includes(it.type)).map((it) => ({
       ...it,
       role: it.type,
       key: it.id,
@@ -386,18 +390,18 @@ const Chat = () => {
             className={styles.chatWelcome}
           />
 
-          {/* <Prompts
-            vertical
-            title="I can help："
+          <Prompts
+            title="我可以帮您："
             items={MOCK_QUESTIONS.map((i) => ({ key: i, description: i }))}
             onItemClick={(info) => handleUserSubmit(info?.data?.description as string)}
+            wrap
             style={{
               marginInline: 16,
             }}
             styles={{
               title: { fontSize: 14 },
             }}
-          /> */}
+          />
         </>
       )}
     </div>
