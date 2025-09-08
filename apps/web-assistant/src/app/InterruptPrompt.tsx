@@ -21,7 +21,8 @@ export const InterruptPrompt = () => {
     );
   };
 
-  if (stream.interrupt) {
+
+  if (!stream.interrupt) {
     return null;
   }
 
