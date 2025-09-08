@@ -91,6 +91,21 @@ const client = new MultiServerMCPClient({
   }
 })
 
+
+const pushThoughtProcess = async (items: any[], state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
+  const ui = typedUi<any>(config);
+  // Find the associated message to link the UI update
+  const associatedMessage = state.messages.find(
+    (msg) => msg.id === state.thoughtProcessId,
+  );
+  ui.push({
+    id: state.thoughtProcessId,
+    name: 'ThoughtProcess',
+    props: { items },
+  }, { message: associatedMessage });
+}
+
+
 const analysisAgent = async (state: typeof StateAnnotation.State) => {
   
   const model = loadChatModel();
@@ -102,20 +117,40 @@ const analysisAgent = async (state: typeof StateAnnotation.State) => {
     llm: model,
     tools: [getMarketingPlan, ...(ChartTools)],
     checkpointSaver: memory,
-    // prompt: 
+    version: 'v2',
+    prompt: await AnalysisAgentPrompt.format({ result_data: JSON.stringify(state.apiResult) })
   });
   // 修复类型不匹配：agent.invoke 期望的参数类型不是 BaseMessage[]，而是 state 或 null
   // 这里直接传递 state 以符合类型要求
   const response = await agent.invoke(
     {
-      messages:  [...state.messages, new SystemMessage(await AnalysisAgentPrompt.format({ result_data: JSON.stringify(state.apiResult) })) ]
-    },
-    {
-      streamMode: 'updates'
+      messages:  state.messages
     }
   );
 
-  return response
+  // 只返回最终的AI分析结果，过滤掉中间处理消息
+  // 保留原始用户消息和最终AI回复
+  const originalUserMessage = state.messages.find(msg => isHumanMessage(msg));
+  const finalAIMessages = response.messages.filter((msg: BaseMessage) => isAIMessage(msg));
+  
+  // 构建只包含用户消息和最终AI回复的消息数组
+  const filteredMessages: BaseMessage[] = [];
+  if (originalUserMessage) {
+    filteredMessages.push(originalUserMessage);
+  }
+  // 只取最后一条AI消息作为最终结果
+  if (finalAIMessages.length > 0) {
+    const lastMessage = finalAIMessages[finalAIMessages.length - 1];
+    lastMessage.id = state.thoughtProcessId
+    filteredMessages.push(lastMessage);
+  }
+
+  console.log('filteredMessages', filteredMessages)
+
+  return {
+    ...response,
+    messages: filteredMessages
+  }
 }
 
 const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
@@ -129,17 +164,8 @@ const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGrap
   }
 
   try {
-
-
-    // Find the associated message to link the UI update
-    const associatedMessage = state.messages.find(
-      (msg) => msg.id === state.thoughtProcessId,
-    );
-
-    ui.push({
-      id: state.thoughtProcessId, // Use the same ID to update the existing UI element
-      name: 'ThoughtProcess',
-      props: { items: [
+    void pushThoughtProcess(
+      [
         ...(state.thoughtChain ?? []),
         {
           key: 'apiExecutor' as const,
@@ -147,8 +173,29 @@ const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGrap
           status: 'pending' as const,
           content: '查询中...',
         },
-      ]},
-    }, { message: associatedMessage });
+      ],
+      state,
+      config
+    )
+
+    // // Find the associated message to link the UI update
+    // const associatedMessage = state.messages.find(
+    //   (msg) => msg.id === state.thoughtProcessId,
+    // );
+
+    // ui.push({
+    //   id: state.thoughtProcessId, // Use the same ID to update the existing UI element
+    //   name: 'ThoughtProcess',
+    //   props: { items: [
+    //     ...(state.thoughtChain ?? []),
+    //     {
+    //       key: 'apiExecutor' as const,
+    //       title: '接口查询',
+    //       status: 'pending' as const,
+    //       content: '查询中...',
+    //     },
+    //   ]},
+    // }, { message: associatedMessage });
 
     const result = await new ApiExecutor(api).execute(apiInfo.api_params)
 
@@ -164,14 +211,19 @@ const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGrap
           2,
         )}\n\`\`\``,
       },
+      {
+        key: 'done',
+        title: '完成',
+        status: 'success' as const,
+        content: '分析思考完成！',
+      }
     ];
 
-    // Push an update to the ThoughtProcess UI component
-    ui.push({
-      id: state.thoughtProcessId, // Use the same ID to update the existing UI element
-      name: 'ThoughtProcess',
-      props: { items: updatedThoughtChain },
-    }, { message: associatedMessage });
+    void pushThoughtProcess(
+      updatedThoughtChain,
+      state,
+      config
+    )
 
     return {
       messages: [new SystemMessage({ content: `接口查询结果: ${JSON.stringify(result)}` })],

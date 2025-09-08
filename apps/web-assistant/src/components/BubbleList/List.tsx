@@ -8,29 +8,13 @@ import { createStyles } from "antd-style";
 import { useStreamContext } from '@/providers/Stream';
 import { LoadExternalComponent } from '@langchain/langgraph-sdk/react-ui';
 import { Markdown } from '@/components/Markdown';
+import { ThoughtProcess } from '@/components/ThoughtProcess';
 
 import { useThreads } from "@/providers/Thread";
 import { useEffect } from "react";
 
 const clientComponents = {
-  ThoughtProcess: (props: ThoughtChainProps) => {
-    const { items, ...restProps } = props
-
-    const iconMap = {
-      pending: <LoadingOutlined />,
-      success: <CheckCircleOutlined />,
-      error: <InfoCircleOutlined />,
-    }
-
-    const formatItems = items?.map((it) => {
-      return {
-        ...it,
-        icon: iconMap[it.status as keyof typeof iconMap],
-        content: <div style={{ width: '400px' }}><Markdown content={it.content || ''} /></div>,
-      }
-    })
-    return <ThoughtChain {...restProps} size="small"  items={formatItems}/>
-  }, // Backend sends 'ThoughtProcess', map it to the antd component.
+  ThoughtProcess,
 };
 
 
@@ -49,11 +33,13 @@ const useStyles = createStyles(({ css }) => {
 
     bubbleItem: css`
       padding: 0;
-
-      .ant-bubble-content {
+    `,
+   
+    collapse: css`
+      .ant-collapse-header {
+        padding: 0 !important;
       }
     `
-   
   }
 });
 
@@ -82,34 +68,49 @@ export function List({
     return null;
     }
 
+
+    return associatedUis.map((ui) => (
+      <div key={ui.id} style={{ marginTop: '8px' }}>
+        <LoadExternalComponent
+          stream={stream}
+          message={ui}
+          components={clientComponents}
+          fallback={<div>Loading UI Component...</div>}
+        />
+      </div>
+    ))
+
     
-    return (
-      <Collapse
-        ghost
-        defaultActiveKey={[1]}
-        items={[
-          {
-            key: 1,
-            label: '思考过程',
-            children: (
-              <div>
-                {associatedUis.map((ui) => (
-                  <div key={ui.id} style={{ marginTop: '8px' }}>
-                    <LoadExternalComponent
-                      stream={stream}
-                      message={ui}
-                      components={clientComponents}
-                      fallback={<div>Loading UI Component...</div>}
-                    />
-                  </div>
-                ))}
-              </div>
-            )
-          }
-        ]}
-      />
-      
-    );
+    // return (
+    //   <Collapse
+    //     ghost
+    //     defaultActiveKey={[1]}
+    //     className={styles.collapse}
+    //     items={[
+    //       {
+    //         key: 1,
+    //         label: '思考过程',
+    //         style: {
+    //           padding: 0
+    //         },
+    //         children: (
+    //           <div>
+    //             {associatedUis.map((ui) => (
+    //               <div key={ui.id} style={{ marginTop: '8px' }}>
+    //                 <LoadExternalComponent
+    //                   stream={stream}
+    //                   message={ui}
+    //                   components={clientComponents}
+    //                   fallback={<div>Loading UI Component...</div>}
+    //                 />
+    //               </div>
+    //             ))}
+    //           </div>
+    //         )
+    //       }
+    //     ]}
+    //   />
+    // );
   };
 
 

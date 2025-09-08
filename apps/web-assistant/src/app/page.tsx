@@ -39,6 +39,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { BubbleList } from '@/components/BubbleList';
 import { useQueryState } from 'nuqs';
+import { ChatSender } from './ChatSender';
 
 import {
   ensureToolCallsHaveResponses,
@@ -77,19 +78,6 @@ const MOCK_SESSION_LIST = [
   },
 ];
 
-const MOCK_SUGGESTIONS = [
-  { label: 'Write a report', value: 'report' },
-  { label: 'Draw a picture', value: 'draw' },
-  {
-    label: 'Check some knowledge',
-    value: 'knowledge',
-    icon: <OpenAIFilled />,
-    children: [
-      { label: 'About React', value: 'react' },
-      { label: 'About Ant Design', value: 'antd' },
-    ],
-  },
-];
 
 const MOCK_QUESTIONS = [
   '查询今天的商品销售数据',
@@ -152,20 +140,7 @@ const useCopilotStyle = createStyles(({ token, css }) => {
       background-repeat: no-repeat;
       background-position: bottom;
     `,
-    // chatSend 样式
-    chatSend: css`
-      padding: 12px;
-    `,
-    sendAction: css`
-      display: flex;
-      align-items: center;
-      margin-bottom: 12px;
-      gap: 8px;
-    `,
-    speechButton: css`
-      font-size: 18px;
-      color: ${token.colorText} !important;
-    `,
+   
   };
 });
 
@@ -211,7 +186,6 @@ const InterruptPrompt = ({ questions, onSubmit }: { questions: string[], onSubmi
 const Chat = () => {
   const [copilotOpen, setCopilotOpen] = useState(true);
   const { styles } = useCopilotStyle();
-  const attachmentsRef = useRef<GetRef<typeof Attachments>>(null);
   const abortController = useRef<AbortController>(null);
 
   // ==================== State ====================
@@ -221,10 +195,6 @@ const Chat = () => {
   const [sessionList, setSessionList] = useState<Conversation[]>(MOCK_SESSION_LIST);
   const [curSession, setCurSession] = useState(sessionList[0].key);
 
-  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
-  const [files, setFiles] = useState<GetProp<AttachmentsProps, 'items'>>([]);
-
-  const [inputValue, setInputValue] = useState('');
 
   /**
    * 🔔 Please replace the BASE_URL, PATH, MODEL, API_KEY with your own values.
@@ -245,7 +215,6 @@ const Chat = () => {
       key: it.id,
     }));
   }, [messages])
-
 
 
   const handleUserSubmit = (input: string) => {
@@ -275,18 +244,6 @@ const Chat = () => {
 
   };
 
-  const handleInterruptSubmit = async (values: FieldType) => {
-    stream.submit(
-      {
-        messages: [{ type: "human", content: values.userInput || '' }]
-      },
-      {
-        command: {
-          resume: values.userInput,
-        },
-      }
-    );
-  };
 
   // ==================== Event ====================
   // const handleUserSubmit = (val: string) => {
@@ -305,12 +262,6 @@ const Chat = () => {
   //   }
   // };
 
-  const onPasteFile = (_: File, files: FileList) => {
-    for (const file of files) {
-      attachmentsRef.current?.upload(file);
-    }
-    setAttachmentsOpen(true);
-  };
 
   // ==================== Nodes ====================
   const chatHeader = (
@@ -406,101 +357,7 @@ const Chat = () => {
       )}
     </div>
   );
-  const sendHeader = (
-    <Sender.Header
-      title="Upload File"
-      styles={{ content: { padding: 0 } }}
-      open={attachmentsOpen}
-      onOpenChange={setAttachmentsOpen}
-      forceRender
-    >
-      <Attachments
-        ref={attachmentsRef}
-        beforeUpload={() => false}
-        items={files}
-        onChange={({ fileList }) => setFiles(fileList)}
-        placeholder={(type) =>
-          type === 'drop'
-            ? { title: 'Drop file here' }
-            : {
-                icon: <CloudUploadOutlined />,
-                title: 'Upload files',
-                description: 'Click or drag files to this area to upload',
-              }
-        }
-      />
-    </Sender.Header>
-  );
-
-  const chatSender = (
-    <div className={styles.chatSend}>
-      <div className={styles.sendAction}>
-        <Button
-          icon={<ScheduleOutlined />}
-          onClick={() => handleUserSubmit('What has Ant Design X upgraded?')}
-        >
-          Upgrades
-        </Button>
-        <Button
-          icon={<ProductOutlined />}
-          onClick={() => handleUserSubmit('What component assets are available in Ant Design X?')}
-        >
-          Components
-        </Button>
-        <Button icon={<AppstoreAddOutlined />}>More</Button>
-      </div>
-
-
-      {stream.interrupt && <InterruptPrompt questions={(stream.interrupt as any)?.value?.questions} onSubmit={handleInterruptSubmit} />}
-
-      {/** 输入框 */}
-      <Suggestion items={MOCK_SUGGESTIONS} onSelect={(itemVal) => setInputValue(`[${itemVal}]:`)}>
-        {({ onTrigger, onKeyDown }) => (
-          <Sender
-            loading={loading}
-            value={inputValue}
-            onChange={(v) => {
-              onTrigger(v === '/');
-              setInputValue(v);
-            }}
-            onSubmit={(message) => {
-
-              if (!message.trim()) return;
-
-              
-
-              handleUserSubmit(inputValue);
-              setInputValue('');
-            }}
-            onCancel={() => {
-              abortController.current?.abort();
-            }}
-            allowSpeech
-            placeholder="Ask or input / use skills"
-            onKeyDown={onKeyDown}
-            header={sendHeader}
-            prefix={
-              <Button
-                type="text"
-                icon={<PaperClipOutlined style={{ fontSize: 18 }} />}
-                onClick={() => setAttachmentsOpen(!attachmentsOpen)}
-              />
-            }
-            onPasteFile={onPasteFile}
-            actions={(_, info) => {
-              const { SendButton, LoadingButton, SpeechButton } = info.components;
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <SpeechButton className={styles.speechButton} />
-                  {loading ? <LoadingButton type="default" /> : <SendButton type="primary" />}
-                </div>
-              );
-            }}
-          />
-        )}
-      </Suggestion>
-    </div>
-  );
+ 
 
   useEffect(() => {
     // history mock
@@ -522,7 +379,7 @@ const Chat = () => {
         {chatList}
 
         {/** 对话区 - 输入框 */}
-        {chatSender}
+        <ChatSender onSubmit={handleUserSubmit}/>
       </div>
     </div>
   );
