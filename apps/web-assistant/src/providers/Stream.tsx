@@ -15,6 +15,8 @@ import {
 import { useThreads } from "./Thread";
 import { message } from 'antd'
 import { useQueryState } from "nuqs";
+import { sleep } from "../utils/tools";
+
 
 export type StateType = { messages: Message[]; ui?: UIMessage[] };
 
@@ -32,9 +34,6 @@ const useTypedStream = useStream<
 type StreamContextType = ReturnType<typeof useTypedStream>;
 const StreamContext = createContext<StreamContextType | undefined>(undefined);
 
-async function sleep(ms = 4000) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function checkGraphStatus(
   apiUrl: string,
@@ -88,6 +87,7 @@ const StreamSession = ({
       console.log("🚀 ~ StreamSession ~ onFinish state:", state)
     },
     onThreadId: (id) => {
+      console.log("🚀 ~ StreamSession onThreadId ~ id:", id)
       setThreadId(id);
       // Refetch threads list when thread ID changes.
       // Wait for some seconds before fetching so we're able to get the new thread that was created.
@@ -95,7 +95,7 @@ const StreamSession = ({
     },
   });
 
-  console.log("🚀 ~ StreamSession ~ streamValue:", streamValue)
+  // console.log("🚀 ~ StreamSession ~ streamValue:", streamValue.setBranch)
 
 
   useEffect(() => {

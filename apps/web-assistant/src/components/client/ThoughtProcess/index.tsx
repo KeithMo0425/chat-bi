@@ -1,6 +1,6 @@
 import { CheckCircleOutlined, InfoCircleOutlined, LoadingOutlined } from "@ant-design/icons"
 import { ThoughtChain, ThoughtChainProps } from "@ant-design/x"
-import { Markdown } from "../Markdown"
+import { Markdown } from "../../Markdown"
 import { Collapse } from "antd"
 import { createStyles } from "antd-style"
 import { useEffect, useState } from "react"
@@ -9,7 +9,7 @@ const useStyles = createStyles(({ css }) => {
   return {
     collapse: css`
       .ant-collapse-header {
-        padding: 0;
+        padding: 0 !important;
       }
     `
   }
@@ -56,12 +56,7 @@ export function ThoughtProcess(props: ThoughtChainProps) {
       activeKey={open ? [1] : []}
       className={styles.collapse}
       onChange={(key) => {
-        console.log("🚀 ~ key:", key)
-        if (key.length > 0) {
-          setOpen(true)
-        } else {
-          setOpen(false)
-        }
+        setOpen(key.length > 0)
       }}
       items={[
         {

@@ -40,6 +40,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { BubbleList } from '@/components/BubbleList';
 import { useQueryState } from 'nuqs';
 import { ChatSender } from './ChatSender';
+import { sleep } from "../utils/tools";
 
 import {
   ensureToolCallsHaveResponses,
@@ -187,6 +188,7 @@ const Chat = () => {
   const [copilotOpen, setCopilotOpen] = useState(true);
   const { styles } = useCopilotStyle();
   const abortController = useRef<AbortController>(null);
+  const [threadId, setThreadId] = useQueryState("threadId");
 
   // ==================== State ====================
 
@@ -194,7 +196,6 @@ const Chat = () => {
 
   const [sessionList, setSessionList] = useState<Conversation[]>(MOCK_SESSION_LIST);
   const [curSession, setCurSession] = useState(sessionList[0].key);
-
 
   /**
    * 🔔 Please replace the BASE_URL, PATH, MODEL, API_KEY with your own values.
@@ -205,21 +206,20 @@ const Chat = () => {
   const stream = useStreamContext();
   const { messages } = stream
 
+  
 
   const loading = stream.isLoading;
 
-  const messagesFormated = useMemo(() => {
-    return messages?.filter((it) => ['human', 'ai'].includes(it.type)).map((it) => ({
-      ...it,
-      role: it.type,
-      key: it.id,
-    }));
-  }, [messages])
 
-
-  const handleUserSubmit = (input: string) => {
+  const handleUserSubmit = async (input: string) => {
     if (!input.trim() || loading) return;
 
+    if (stream.messages[stream.messages.length - 1]?.response_metadata?.status === 'finished') {
+      const thread = await stream.client.threads.create()
+      console.log("🚀 ~ handleUserSubmit ~ thread:", thread)
+      await setThreadId(thread.thread_id);
+      await sleep();
+    }
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
@@ -330,7 +330,7 @@ const Chat = () => {
     <div className={styles.chatList}>
       {messages?.length ? (
         /** 消息列表 */
-        <BubbleList messages={messagesFormated as any} />
+        <BubbleList />
       ) : (
         /** 没有消息时的 welcome */
         <>

@@ -5,6 +5,7 @@ import { useStreamContext } from '@/providers/Stream';
 import { createStyles } from "antd-style";
 import { useRef, useState } from "react";
 import { InterruptPrompt } from "./InterruptPrompt";
+import { useQueryState } from "nuqs";
 
 
 const MOCK_SUGGESTIONS = [
@@ -27,16 +28,6 @@ const useStyles = createStyles(({ css, token }) => {
     chatSend: css`
      padding: 12px;
    `,
-   sendAction: css`
-     display: flex;
-     align-items: center;
-     margin-bottom: 12px;
-     gap: 8px;
-   `,
-   speechButton: css`
-     font-size: 18px;
-     color: ${token.colorText} !important;
-   `,
   }
 })
 
@@ -55,7 +46,7 @@ export function ChatSender({
 
   return (
     <div className={styles.chatSend}>
-      <div className={styles.sendAction}>
+      {/* <div className={styles.sendAction}>
         <Button
           icon={<ScheduleOutlined />}
           onClick={() => onSubmit('What has Ant Design X upgraded?')}
@@ -69,7 +60,7 @@ export function ChatSender({
           Components
         </Button>
         <Button icon={<AppstoreAddOutlined />}>More</Button>
-      </div>
+      </div> */}
 
 
       <InterruptPrompt />
@@ -94,7 +85,7 @@ export function ChatSender({
               abortController.current?.abort();
             }}
             allowSpeech
-            placeholder="Ask or input / use skills"
+            placeholder="询问 或 输入"
             onKeyDown={onKeyDown}
             // header={sendHeader}
             // prefix={
@@ -109,7 +100,7 @@ export function ChatSender({
               const { SendButton, LoadingButton, SpeechButton } = info.components;
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <SpeechButton className={styles.speechButton} />
+                  {/* <SpeechButton className={styles.speechButton} /> */}
                   {loading ? <LoadingButton type="default" /> : <SendButton type="primary" />}
                 </div>
               );

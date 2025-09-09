@@ -102,6 +102,9 @@ const pushThoughtProcess = async (items: any[], state: typeof StateAnnotation.St
     id: state.thoughtProcessId,
     name: 'ThoughtProcess',
     props: { items },
+    metadata: {
+      type: 'header'
+    }
   }, { message: associatedMessage });
 }
 
@@ -145,8 +148,6 @@ const analysisAgent = async (state: typeof StateAnnotation.State) => {
     filteredMessages.push(lastMessage);
   }
 
-  console.log('filteredMessages', filteredMessages)
-
   return {
     ...response,
     messages: filteredMessages
@@ -155,7 +156,6 @@ const analysisAgent = async (state: typeof StateAnnotation.State) => {
 
 const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
   console.log("🚀 ~ apiExecutor ~ state:", state)
-  const ui = typedUi<any>(config);
 
   const apiInfo = state.apiInfo
   const api = ApiExecutor.getApi(apiInfo.primary_recommendation)
@@ -226,7 +226,6 @@ const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGrap
     )
 
     return {
-      messages: [new SystemMessage({ content: `接口查询结果: ${JSON.stringify(result)}` })],
       secondExtract: null,
       apiResult: result,
       thoughtChain: updatedThoughtChain,
@@ -310,6 +309,9 @@ const analysisOfIntentions = async (state: typeof StateAnnotation.State, config:
       id: thoughtProcessId,
       name: 'ThoughtProcess',
       props: { items: initialThoughtChain },
+      metadata: {
+        type: 'header'
+      }
     },
     { message: aiMessage },
   );
@@ -322,6 +324,32 @@ const analysisOfIntentions = async (state: typeof StateAnnotation.State, config:
     thoughtProcessId,
     thoughtChain: initialThoughtChain,
   };
+}
+
+const done = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
+  const ui = typedUi<any>(config);
+  const doneMessage = new SystemMessage({
+    content: '',
+    id: 'done:' + uuidv4(),
+    response_metadata: {
+      status: 'finished',
+    }
+  }, {
+    status: 'success',
+  });
+  ui.push(
+    {
+      name: 'DoneDivider',
+      props: { },
+      metadata: {
+        type: 'content'
+      }
+    },
+    { message: doneMessage }
+  );
+  return {
+    messages: doneMessage,
+  }
 }
 
 const extractParameters = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
@@ -377,13 +405,15 @@ const extractParameters = async (state: typeof StateAnnotation.State, config: La
     id: state.thoughtProcessId, // Use the same ID to update
     name: 'ThoughtProcess',
     props: { items: updatedThoughtChain },
+    metadata: {
+      type: 'header'
+    }
   }, { message: associatedMessage });
 
   return new Command({
     goto: "apiExecutor",
     update: {
       // The AIMessage is no longer needed to display the thought process
-      messages: [],
       apiInfo: {
         ...state.apiInfo,
         api_params: params,
@@ -425,6 +455,7 @@ const workflow = new StateGraph(StateAnnotation, ConfigurationSchema)
   // .addNode("canvasAgent", canvasAgent)
   .addNode("analysisOfIntentions", analysisOfIntentions)
   .addNode("apiExecutor", apiExecutor)
+  .addNode("done", done)
   .addNode("extractParameters", extractParameters, { ends: [
     "analysisAgent",
     "apiExecutor"
@@ -434,7 +465,8 @@ const workflow = new StateGraph(StateAnnotation, ConfigurationSchema)
   .addEdge(START, "analysisOfIntentions")
   .addEdge("analysisOfIntentions", "apiExecutor")
   .addEdge("apiExecutor", "extractParameters")
-  .addEdge("analysisAgent", END);
+  .addEdge("analysisAgent", "done")
+  .addEdge("done", END);
 
   // // This means that after `tools` is called, `callModel` node is called next.
   // .addEdge("analysisOfIntentions", "__end__");

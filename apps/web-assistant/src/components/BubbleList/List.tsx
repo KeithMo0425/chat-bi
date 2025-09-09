@@ -6,16 +6,13 @@ import { ChartType, Line, withChartCode, Area, Bar, Column, Histogram, Pie, with
 import { Button, Space, Spin, Image, Avatar, Collapse } from "antd";
 import { createStyles } from "antd-style";
 import { useStreamContext } from '@/providers/Stream';
-import { LoadExternalComponent } from '@langchain/langgraph-sdk/react-ui';
 import { Markdown } from '@/components/Markdown';
-import { ThoughtProcess } from '@/components/ThoughtProcess';
+import { LoadExternalComponent } from '@/components/client';
 
 import { useThreads } from "@/providers/Thread";
-import { useEffect } from "react";
-
-const clientComponents = {
-  ThoughtProcess,
-};
+import { useCallback, useEffect, useMemo } from "react";
+import { UIMessage } from "@langchain/langgraph-sdk/react-ui";
+import { Message } from "@langchain/langgraph-sdk";
 
 
 const AGENT_PLACEHOLDER = '生成内容中，请稍等...';
@@ -32,102 +29,116 @@ const useStyles = createStyles(({ css }) => {
     `,
 
     bubbleItem: css`
-      padding: 0;
+      .ant-collapse-header {
+        padding: 0;
+      }
     `,
    
     collapse: css`
       .ant-collapse-header {
         padding: 0 !important;
       }
-    `
+    `,
+
+    systemBubbleItem: css`
+      .ant-bubble-content {
+        padding: 0;
+        border: none;
+        width: 100%;
+      }
+    `,
   }
 });
 
+type UIPosition = 'header' | 'content' | 'footer';
 
-
-export function List({
-  messages,
-}: {
-  messages: MessageInfo<BubbleDataType>[];
-}) {
-  const { getThreads } = useThreads();
+export function List() {
   const { styles } = useStyles();
   const stream = useStreamContext()
+  const { messages, values } = stream
+
+  const uiGroups: Record<UIPosition, UIMessage[]> | undefined = useMemo(() => {
+    return values?.ui?.reduce((acc, ui) => {
+      acc[ui.metadata?.type as UIPosition] = acc[ui.metadata?.type as UIPosition] ?? [];
+      acc[ui.metadata?.type as UIPosition].push(ui);
+      return acc;
+    }, {} as Record<UIPosition, UIMessage[]>);
+  }, [values])
   
-  useEffect(() => {
-    getThreads().then((threads) => {
-      console.log("🚀 ~ List ~ threads:", threads)
-    })
-  }, [])
-
-
-  const renderHeader = (content: string, message: any) => {
+  const renderHeader = useCallback((content: string, message: any) => {
     // Find all UI messages associated with this regular message
-    const associatedUis = stream.values?.ui?.filter((ui) => ui.metadata?.message_id === message.key) ?? [];
+    const associatedUis = uiGroups?.['header']?.filter((ui) => ui.metadata?.message_id === message.key) ?? [];
     if (associatedUis.length <= 0) {
-    return null;
+      return null;
     }
-
 
     return associatedUis.map((ui) => (
       <div key={ui.id} style={{ marginTop: '8px' }}>
-        <LoadExternalComponent
-          stream={stream}
-          message={ui}
-          components={clientComponents}
-          fallback={<div>Loading UI Component...</div>}
-        />
+        <LoadExternalComponent ui={ui} />
       </div>
     ))
+  }, [uiGroups]);
 
-    
-    // return (
-    //   <Collapse
-    //     ghost
-    //     defaultActiveKey={[1]}
-    //     className={styles.collapse}
-    //     items={[
-    //       {
-    //         key: 1,
-    //         label: '思考过程',
-    //         style: {
-    //           padding: 0
-    //         },
-    //         children: (
-    //           <div>
-    //             {associatedUis.map((ui) => (
-    //               <div key={ui.id} style={{ marginTop: '8px' }}>
-    //                 <LoadExternalComponent
-    //                   stream={stream}
-    //                   message={ui}
-    //                   components={clientComponents}
-    //                   fallback={<div>Loading UI Component...</div>}
-    //                 />
-    //               </div>
-    //             ))}
-    //           </div>
-    //         )
-    //       }
-    //     ]}
-    //   />
-    // );
-  };
+  const renderAiContent = useCallback((info: Message) => {
+    const associatedUis = uiGroups?.['content']?.filter((ui) => ui.metadata?.message_id === info.id) ?? [];
+    if (associatedUis.length <= 0) {
+      return <Markdown content={info.content as string} />;
+    }
+    return associatedUis.map((ui) => (
+      <LoadExternalComponent ui={ui} />
+    ))
+  }, [uiGroups]);
+
+  const renderSysContent = useCallback((info: Message) => {
+    const associatedUis = uiGroups?.['content']?.filter((ui) => ui.metadata?.message_id === info.id) ?? [];
+    if (associatedUis.length <= 0) {
+      return info.content
+    }
+    return associatedUis.map((ui) => (
+      <LoadExternalComponent ui={ui} />
+    ))
+  }, [uiGroups]);
+
+  const messagesFormated = useMemo(() => {
+    return messages?.filter((i) => i.type !== 'tool').map((i) => {
+
+      const commons = {
+        ...i,
+        role: i.type,
+        key: i.id,
+        id: String(i.id), // Fix: Ensure ID is a string
+        className: styles.bubbleItem,
+        variant: "outlined",
+      }
+
+      if (i.type === 'ai') {
+        return {
+          ...commons,
+          content: i,
+          messageRender: renderAiContent,
+          header: renderHeader,
+        }
+      } else if (i.type === 'human') {
+        return {
+          ...commons,
+        }
+      } else if (i.type === 'system') {
+        return {
+          ...commons,
+          className: styles.systemBubbleItem,
+          content: i,
+          messageRender: renderSysContent,
+        }
+      }
+
+    }) ?? []
+  }, [messages, renderHeader, renderSysContent, renderAiContent])
 
 
   return (
     <Bubble.List
       style={{ height: '100%', paddingInline: 16 }}
-      items={messages?.map((i) => ({
-        ...i,
-        id: String(i.id), // Fix: Ensure ID is a string
-        messageRender: (content) => <Markdown content={content} />,
-        header: renderHeader,
-        className: styles.bubbleItem,
-        style: {
-          padding: 0
-        },
-        variant: "outlined",
-      }))}
+      items={messagesFormated}
       roles={{
         ai: {
           placement: 'start',
@@ -147,7 +158,7 @@ export function List({
             </Space>
           ),
         },
-        system: { placement: 'start', avatar: <Avatar>sys</Avatar> },
+        // system: { placement: 'start', avatar: <Avatar>sys</Avatar> },
         human: { placement: 'end', avatar: <Avatar>humn</Avatar> },
       }}
     />
