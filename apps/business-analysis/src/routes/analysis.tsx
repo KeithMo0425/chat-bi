@@ -46,8 +46,8 @@ function RouteComponent() {
   
   // 获取路由参数 type
   const { type } = Route.useSearch();
+  const scrollRef = useRef<HTMLDivElement>(null)
   
-  console.log("🚀 ~ Analysis ~ type:", type)
 
   const [finalSource, setFinalSource] = useState('')
   const [displayedSource, setDisplayedSource] = useState('')
@@ -63,6 +63,13 @@ function RouteComponent() {
       return () => clearTimeout(timer);
     }
   }, [finalSource, displayedSource]);
+
+  useEffect(() => {
+    console.log("🚀 ~ RouteComponent ~ scrollRef.current:", scrollRef.current)
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [displayedSource])
 
 
   useEffect(() => {
@@ -157,7 +164,7 @@ function RouteComponent() {
   }, [])
 
   return (
-    <PageContainer title={titleMap[type as keyof typeof titleMap] + '经营分析报告'}>
+    <PageContainer title={titleMap[type as keyof typeof titleMap] + '经营分析报告'} ref={scrollRef}>
       {loading ? <SkeletonComponent /> : (
         <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeExternalLinks, { target: '_new', rel: ['noopener', 'noreferrer'] }]]}>{displayedSource}</Markdown>
       )}

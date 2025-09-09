@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
+import { forwardRef } from "react";
 
 import ArrowLeftIcon from '../assets/arrow-left.svg?react'
 
-export function PageContainer({ children, title }: { children: React.ReactNode, title: string }) {
+export const PageContainer = forwardRef<HTMLDivElement, { children: React.ReactNode, title: string }>(({ children, title }, ref) => {
   return (
     <div className="page-container">
       <div className="page-container-header">
@@ -15,9 +16,9 @@ export function PageContainer({ children, title }: { children: React.ReactNode, 
         <div className="divider"/>
         <h1>{title}</h1>
       </div>
-      <div className="page-container-content">
+      <div className="page-container-content" ref={ref}>
         {children}
       </div>
     </div>
   )
-}
+})
