@@ -27,14 +27,7 @@ export default defineConfig({
   },
   output: {
     assetPrefix: process.env.STATIC_BASE_PATH || '/',
-    overrideBrowserslist: [
-      'iOS >= 9',
-      'Android >= 4.4',
-      'chrome >= 80',
-      'last 2 versions',
-      '> 0.2%',
-      'not dead',
-    ],
+    overrideBrowserslist:['chrome >= 80', 'edge >= 80', 'firefox >= 78', 'safari >= 14']
   },
   
 });
