@@ -9,8 +9,9 @@ import { PageContainer } from '../components'
 import dayjs from 'dayjs'
 import { getAnalyzeData } from '../services'
 // 移除与本地 Skeleton 组件冲突的导入
-import { Skeleton } from "../components/ui/skeleton"
+// import { Skeleton } from "../components/ui/skeleton"
 import { ACCESS_TOKEN_KEY } from '../config';
+import Loading from '../assets/loading.svg?react'
 
 const dateMap = {
   yesterday: [dayjs().subtract(1, 'day').startOf('day').unix(), dayjs().subtract(1, 'day').endOf('day').unix()],
@@ -34,16 +35,9 @@ export const Route = createFileRoute('/analysis')({
 
 const SkeletonComponent = () => {
   return (
-    <div className="flex flex-col space-y-3">
-      <Skeleton className="h-[20px] w-[800px]" />
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-[250px]" />
-        <Skeleton className="h-4 w-[200px]" />
-        <Skeleton className="h-[200px] w-[800px] rounded-xl" />
-        <Skeleton className="h-4 w-[200px]" />
-        <Skeleton className="h-4 w-[200px]" />
-        <Skeleton className="h-[200px] w-[800px] rounded-xl" />
-      </div>
+    <div className="flex flex-col space-y-3 justify-center items-center h-400">
+      <Loading />
+      <div className="text-sm text-indigo-600">分析中...</div>
     </div>
   )
 }
@@ -78,27 +72,18 @@ function RouteComponent() {
     firstRef.current = false
     
     const sseUrl = `${import.meta.env.PUBLIC_SERVER_HOST}/AIServer/api/v1/SSEStream/Events?access_token=${sessionStorage.getItem(ACCESS_TOKEN_KEY)}`
-    console.log("🚀 ~ RouteComponent ~ sseUrl:", sseUrl)
-    console.log('sessionStorage.getItem(ACCESS_TOKEN_KEY)', sessionStorage.getItem(ACCESS_TOKEN_KEY))
 
     let eventSource: EventSource | null = null
 
     function connect() {  
       try {
         
-        console.log("🚀 ~ connect ~ connect:")
         eventSource = new EventSource(sseUrl);
-        console.log("🚀 ~ connect ~ connect:2")
 
         eventSource.onopen = function (e) {
-            console.log("🚀 ~ RouteComponent ~ e:", e)
-            console.log('SSE 连接已打开');
-            
+            console.log('SSE 连接已打开', e);
         };
 
-        eventSource.addEventListener('scene', (e) => {
-          console.log("🚀 ~ connect ~ update:", e)
-        })
 
         let firstFrame = true
         eventSource.onmessage = function (e) {
@@ -113,15 +98,15 @@ function RouteComponent() {
                 StartTime: start,
                 StreamRequestID: (data ?? '').trim(),
                 EndTime: end,
-              }).then(res => {
-                // setSource(res)
-                console.log("🚀 ~ useEffect ~ res:", res)
-              }).finally(() => {
+              })
+              .catch(err => {
                 setLoading(false)
+                console.error('🚀 ~ useEffect ~ err:', err)
               })
               return
             }
-            
+
+            setLoading(false)
 
             if (data === '[DONE]' || data.includes('[END]')) {
                 console.log('\n🔚 服务端通知：流式输出结束。');
