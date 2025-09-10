@@ -29,9 +29,9 @@ body {
 
 .button-container {
   width: 320px;
-  justify-self: flex-end;
   margin-top: 20vh;
   margin-right: 8vw;
+  float: right;
 
   .button {
     cursor: pointer;
@@ -177,7 +177,7 @@ body {
   background-color: #f8fafc;
 }
 
-.page-container-content table tr:hover {
+.page-container-content table tr:nth-child(n+2):hover {
   background-color: #edf2f7;
   transition: background-color 0.2s ease;
 }
