@@ -35,7 +35,16 @@ export const Route = createFileRoute('/analysis')({
 
 const SkeletonComponent = () => {
   return (
-    <div className="flex flex-col space-y-3 justify-center items-center h-400">
+    <div
+      className="flex flex-col space-y-3 justify-center items-center"
+      style={{
+        position: 'absolute',
+        height: '100px',
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+      }}
+    >
       <Loading />
       <div className="text-sm text-indigo-600">分析中...</div>
     </div>
@@ -48,10 +57,10 @@ function RouteComponent() {
   const { type } = Route.useSearch();
   const scrollRef = useRef<HTMLDivElement>(null)
   
-
   const [finalSource, setFinalSource] = useState('')
   const [displayedSource, setDisplayedSource] = useState('')
   const [loading, setLoading] = useState(true)
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true)
   const firstRef = useRef(true)
 
 
@@ -65,11 +74,32 @@ function RouteComponent() {
   }, [finalSource, displayedSource]);
 
   useEffect(() => {
-    console.log("🚀 ~ RouteComponent ~ scrollRef.current:", scrollRef.current)
-    if (scrollRef.current) {
+    if (scrollRef.current && autoScrollEnabled) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [displayedSource])
+
+  useEffect(() => {
+    const scrollElement = scrollRef.current
+    const handleScroll = () => {
+      if (scrollElement) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollElement
+        // 当滚动条不在最底部时，禁用自动滚动
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 10
+        if (isAtBottom) {
+          setAutoScrollEnabled(true)
+        } else {
+          setAutoScrollEnabled(false)
+        }
+      }
+    }
+
+    scrollElement?.addEventListener('scroll', handleScroll)
+
+    return () => {
+      scrollElement?.removeEventListener('scroll', handleScroll)
+    }
+  }, [scrollRef.current])
 
 
   useEffect(() => {
