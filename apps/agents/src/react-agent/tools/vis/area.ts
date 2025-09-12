@@ -37,12 +37,13 @@ export const generateArea = tool(
       type: 'area',
       data,
     }
-    
+
     return ChartPrompt.format({ chart_data: JSON.stringify(reutrnData), title })
   },
   {
     name: "generate_area_chart",
     description: "Generate a area chart to show data trends under continuous independent variables and observe the overall data trend, such as, displacement = velocity (average or instantaneous) × time: s = v × t. If the x-axis is time (t) and the y-axis is velocity (v) at each moment, an area chart allows you to observe the trend of velocity over time and infer the distance traveled by the area's size.",
     schema: inputSchema,
+    returnDirect: true,
   }
 );

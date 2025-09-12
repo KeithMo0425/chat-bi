@@ -4,7 +4,7 @@ import { JsonOutputParser } from "@langchain/core/output_parsers";
 import { ConfigurationSchema } from "./configuration.js";
 import { typedUi, uiMessageReducer } from "@langchain/langgraph-sdk/react-ui/server";
 import { loadChatModel, loadModal } from "./utils.js";
-import { AnalysisOfIntentionsPrompt, ExtractParametersPrompt, AnalysisAgentPrompt } from "./prompts/fetch-agent.js";
+import { AnalysisOfIntentionsPrompt, ExtractParametersPrompt, AnalysisAgentPrompt, GenerateChartPrompt } from "./prompts/index.js";
 import { apis } from "./config/apis.js";
 import * as z from 'zod'
 import { ApiExecutor } from "./utils/apiExecutor.js";
@@ -108,6 +108,72 @@ const pushThoughtProcess = async (items: any[], state: typeof StateAnnotation.St
   }, { message: associatedMessage });
 }
 
+const stateModifier = (state: typeof StateAnnotation.State) => {
+  console.log("🚀 ~ stateModifier ~ state:", state)
+  return state.messages;
+};
+
+const chartAgent = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
+  const ui = typedUi<any>(config);
+  
+  const model = loadChatModel();
+  // Here we only save in-memory
+  const memory = new MemorySaver();
+
+
+  const agent = createReactAgent({
+    llm: model,
+    tools: ChartTools,
+    checkpointSaver: memory,
+    prompt: await GenerateChartPrompt.format({ result_data: JSON.stringify(state.apiResult) }),
+
+  });
+  const response = await agent.invoke(
+    {
+      messages:  state.messages
+    }
+  );
+
+  const toolMessage = response.messages[response.messages.length - 1] as ToolMessage;
+  console.log("🚀 ~ chartAgent ~ response:", response.messages)
+  const newMessage = new AIMessage({
+    content: toolMessage.content,
+    id: uuidv4()
+  })
+
+  ui.push(
+    {
+      name: 'DataCard',
+      props: {
+        actions: [
+          {
+            key: 'analysis',
+            label: '数据解读',
+            content: ''
+          },
+          {
+            key: 'visualization',
+            label: '数据可视化',
+            content: ''
+          }
+        ]
+      },
+      metadata: {
+        type: 'content'
+      }
+    },
+    {
+      message: newMessage
+    }
+  )
+  
+  return {
+    messages: isToolMessage(toolMessage) ? [
+      newMessage
+    ]: []
+  }
+}
+
 
 const analysisAgent = async (state: typeof StateAnnotation.State) => {
   
@@ -199,17 +265,24 @@ const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGrap
 
     const result = await new ApiExecutor(api).execute(apiInfo.api_params)
 
+    const resultStr = `
+      接口查询成功，结果为：\n
+      \`\`\`json
+        ${JSON.stringify(
+          result,
+          null,
+          2,
+        )}
+      \`\`\`
+    `
+
     const updatedThoughtChain = [
       ...(state.thoughtChain ?? []),
       {
         key: 'apiExecutor' as const,
         title: '接口查询',
         status: 'success' as const,
-        content: `接口查询成功，结果为：\n\`\`\`json\n${JSON.stringify(
-          result,
-          null,
-          2,
-        )}\n\`\`\``,
+        content: resultStr,
       },
       {
         key: 'done',
@@ -226,6 +299,7 @@ const apiExecutor = async (state: typeof StateAnnotation.State, config: LangGrap
     )
 
     return {
+      messages: [],
       secondExtract: null,
       apiResult: result,
       thoughtChain: updatedThoughtChain,
@@ -352,12 +426,16 @@ const done = async (state: typeof StateAnnotation.State, config: LangGraphRunnab
   }
 }
 
+const humanFeedback = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
+  
+}
+
 const extractParameters = async (state: typeof StateAnnotation.State, config: LangGraphRunnableConfig) => {
   const ui = typedUi<any>(config);
 
   if (!state.secondExtract) {
     return new Command({
-      goto: "analysisAgent",
+      goto: "chartAgent",
     })
   }
 
@@ -449,23 +527,25 @@ const extractParameters = async (state: typeof StateAnnotation.State, config: La
 // Define a new graph. We use the prebuilt MessagesAnnotation to define state:
 // https://langchain-ai.github.io/langgraphjs/concepts/low_level/#messagesannotation
 const workflow = new StateGraph(StateAnnotation, ConfigurationSchema)
-  .addNode("analysisAgent", analysisAgent)
+  // .addNode("analysisAgent", analysisAgent)
   // Define the two nodes we will cycle between
   // .addNode("fetchAgent", fetchAgent)
   // .addNode("canvasAgent", canvasAgent)
+  .addNode("chartAgent", chartAgent)
   .addNode("analysisOfIntentions", analysisOfIntentions)
   .addNode("apiExecutor", apiExecutor)
   .addNode("done", done)
   .addNode("extractParameters", extractParameters, { ends: [
-    "analysisAgent",
+    "chartAgent",
     "apiExecutor"
-  ] })
+  ]})
   // Set the entrypoint as `callModel`
   // This means that this node is the first one called
   .addEdge(START, "analysisOfIntentions")
   .addEdge("analysisOfIntentions", "apiExecutor")
   .addEdge("apiExecutor", "extractParameters")
-  .addEdge("analysisAgent", "done")
+  .addEdge("chartAgent", "done")
+  // .addEdge("")
   .addEdge("done", END);
 
   // // This means that after `tools` is called, `callModel` node is called next.

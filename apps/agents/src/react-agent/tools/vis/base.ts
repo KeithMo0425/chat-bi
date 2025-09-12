@@ -1,3 +1,6 @@
+import { AIMessage } from "@langchain/core/messages";
+import { tool } from "@langchain/core/tools";
+import { Command } from "@langchain/langgraph";
 import * as z from "zod";
 
 // Define Zod schemas for base configuration properties

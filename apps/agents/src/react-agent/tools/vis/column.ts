@@ -54,5 +54,6 @@ export const generateColumn = tool(
     name: "generate_column_chart",
     description: "Generate a column chart, which are best for comparing categorical data, such as, when values are close, column charts are preferable because our eyes are better at judging height than other visual elements like area or angles.",
     schema: inputSchema,
+    returnDirect: true,
   }
 );

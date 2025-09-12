@@ -44,5 +44,6 @@ export const generateHistogram = tool(
     name: "generate_histogram_chart",
     description: "Generate a histogram chart to show the frequency of data points within a certain range. It can observe data distribution, such as, normal and skewed distributions, and identify data concentration areas and extreme points.",
     schema: inputSchema,
+    returnDirect: true,
   }
 );

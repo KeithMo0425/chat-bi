@@ -1,7 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
 import { loadModal } from "../utils.js";
-import { GetMarketingPlanPrompt } from "../prompts/fetch-agent.js";
+import { GetMarketingPlanPrompt } from "../prompts/index.js";
 import { JsonOutputParser } from "@langchain/core/output_parsers";
 import { marketingPlan } from "../config/marketing-plan.js";
 
