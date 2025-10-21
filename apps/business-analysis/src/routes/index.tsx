@@ -22,7 +22,7 @@ function Home() {
 
   return (
     <div
-      className="font-sans grid grid-rows-[20px_1fr_20px] items-start justify-items-center min-h-screen p-8 pb-20 gap-16 bg-cover bg-center bg-no-repeat"
+      className="font-sans grid grid-rows-[20px_1fr_20px] items-start justify-items-center min-h-screen p-8 pb-20 gap-16 bg-cover bg-center bg-no-repeat relative"
       style={{
         backgroundImage: `url(${BgImage})`,
         backgroundSize: "cover",
@@ -31,6 +31,9 @@ function Home() {
         padding: 0,
       }}
     >
+      <div className="absolute top-8 left-8 bg-red-100 border border-red-500 text-red-500 text-sm px-4 py-1 rounded">
+        免费体验至 2025-12-31
+      </div>
       <main
         style={{
           width: "100%",
